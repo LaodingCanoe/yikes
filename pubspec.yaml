@@ -1,0 +1,47 @@
+name: yikes
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+dependencies:
+  google_sign_in: ^5.0.7
+  image_picker: ^0.8.5+3
+  flutter_spinkit: ^5.2.1
+  shared_preferences: ^2.1.2
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  intl: ^0.20.1
+  smooth_page_indicator: ^1.2.0+3
+  carousel_slider: ^5.0.0
+  url_launcher: ^6.1.10 
+  cupertino_icons: ^1.0.8
+  video_player: ^2.9.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/search.png
+    - assets/defolt_logo.jpg
+    - assets/placeholder.png
+  fonts:
+  - family: GOST
+    fonts:
+      - asset: assets/fonts/GOST_A.ttf
+        weight: 400
+      - asset: assets/fonts/GOST_B.ttf
+        weight: 700
+      - asset: assets/fonts/GOST_B_italy.ttf
+        style: italic
+  - family: BlackOpsOne
+    fonts:
+      - asset: assets/fonts/BlackOpsOne.otf
+  - family: Standart
+    fonts:
+      - asset: assets/fonts/Standart.otf
