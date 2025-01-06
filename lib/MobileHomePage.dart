@@ -32,6 +32,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: const Text(
           'Yikes',
           textAlign: TextAlign.center,
@@ -159,6 +160,7 @@ class _HomePageState extends State<HomePage> {
                                 item['Название'].toUpperCase(),
                                 style: const TextStyle(
                                   color: Colors.white,
+                                  fontFamily: 'BlackOpsOne',
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                 ),

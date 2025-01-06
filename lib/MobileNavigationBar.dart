@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'mobile_product_list.dart';
 import 'MobileHomePage.dart';
-
+import 'authorization.dart';
 void main() => runApp(const MobileNavigationBar());
 
 class MobileNavigationBar extends StatelessWidget {
@@ -27,7 +26,7 @@ class _NavigationExampleState extends State<NavigationExample> {
     MobileHomePage(),
     const Center(child: Text('Search Page')),
     const Center(child: Text('Cart Page')),
-    const Center(child: Text('Account Page')),
+    Authorization(),
   ];
 
   @override

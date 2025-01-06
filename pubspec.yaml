@@ -19,6 +19,7 @@ dependencies:
   url_launcher: ^6.1.10 
   cupertino_icons: ^1.0.8
   video_player: ^2.9.2
+  flutter_secure_storage: ^5.1.2 
 
 dev_dependencies:
   flutter_test:
@@ -28,7 +29,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/search.png
-    - assets/defolt_logo.jpg
+    - assets/default_avatar.png
     - assets/placeholder.png
   fonts:
   - family: GOST

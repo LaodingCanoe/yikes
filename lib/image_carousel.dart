@@ -99,8 +99,8 @@ void _initializeVideoController() {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _currentIndex == index
-                      ? Colors.deepPurple
-                      : Colors.grey,
+                      ? Color(0xFF333333)
+                      : Color(0xFFC7C7C7),
                 ),
               );
             }).toList(),
