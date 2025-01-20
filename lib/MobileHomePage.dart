@@ -176,7 +176,7 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 20),
             const Text(
-              ' Новинки',
+              '  Новинки',
               style: TextStyle(
                 fontFamily: 'Standart',
                 fontSize: 36,
@@ -192,6 +192,30 @@ class _HomePageState extends State<HomePage> {
                     key: ValueKey(selectedCategory),
                     gendrCode: selectedCategory == 'Мужчинам' ? 1 : 2,
                     maxItems: 10,
+                    layoutType: LayoutType.horizontal,
+                  );
+                },
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            const Text(
+              '  Бесцелеры',
+              style: TextStyle(
+                fontFamily: 'Standart',
+                fontSize: 36,
+                fontWeight: FontWeight.w500,
+                wordSpacing: 10,
+              ),
+            ),
+            SizedBox(
+              height: 426,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return ProductCart(
+                    key: ValueKey(selectedCategory),
+                    gendrCode: selectedCategory == 'Мужчинам' ? 1 : 2,
+                    maxItems: 10,  hashtag: 'Бестселлер',
                     layoutType: LayoutType.horizontal,
                   );
                 },

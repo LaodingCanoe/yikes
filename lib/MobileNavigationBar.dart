@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'MobileHomePage.dart';
 import 'authorization.dart';
+import 'account_page.dart';
+import 'db_class.dart';
+import 'CartCard.dart';
+
+final dbHelper = DatabaseHelper();
+
 void main() => runApp(const MobileNavigationBar());
 
 class MobileNavigationBar extends StatelessWidget {
@@ -21,13 +27,28 @@ class NavigationExample extends StatefulWidget {
 
 class _NavigationExampleState extends State<NavigationExample> {
   int currentPageIndex = 0;
+  Map<String, dynamic>? userData;
 
-  final List<Widget> pages = [
-    MobileHomePage(),
-    const Center(child: Text('Search Page')),
-    const Center(child: Text('Cart Page')),
-    Authorization(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    loadUserData();
+  }
+
+  Future<void> loadUserData() async {
+    final data = await dbHelper.getLoginData();
+    setState(() {
+      userData = data.isNotEmpty && data['userId'] != null ? data : null;
+    });
+  }
+
+  void switchToHomePage() async {
+    await loadUserData();
+    setState(() {
+      //currentPageIndex = userData != null ? 1 : 1;
+      currentPageIndex = 0;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,25 +61,23 @@ class _NavigationExampleState extends State<NavigationExample> {
           });
         },
         destinations: const <Widget>[
-          NavigationDestination(
-            icon: Icon(Icons.home), // Home
-            label: '', // Empty label
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search), // Search
-            label: '', // Empty label
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart), // Cart
-            label: '', // Empty label
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person), // Account
-            label: '', // Empty label
-          ),
+          NavigationDestination(icon: Icon(Icons.home), label: ''),
+          NavigationDestination(icon: Icon(Icons.person), label: ''),
+          NavigationDestination(icon: Icon(Icons.shopping_cart), label: ''),
+          NavigationDestination(icon: Icon(Icons.login), label: ''),
         ],
       ),
-      body: pages[currentPageIndex],
+      body: IndexedStack(
+        index: currentPageIndex,
+        children: [
+          MobileHomePage(),
+          const Center(child: Text('Search Page')),
+          CartScreen(),
+          userData != null
+              ? AccountPage(userData: userData!, onSuccess: switchToHomePage) // Передаём данные в AccountPage
+              : Authorization(onSuccess: switchToHomePage), // Страница авторизации
+        ],
+      ),
     );
   }
 }

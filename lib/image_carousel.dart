@@ -41,72 +41,85 @@ void _initializeVideoController() {
 }
 
 
-  @override
-  Widget build(BuildContext context) {
-    final double imageSize = MediaQuery.of(context).size.width * 0.6;
+ @override
+Widget build(BuildContext context) {
+  final double imageSize = MediaQuery.of(context).size.width * 0.6;
 
-    return Stack(
-      children: [
-        CarouselSlider.builder(
-          itemCount: widget.imageUrls.length,
-          itemBuilder: (context, index, _) {
-            final isVideo = widget.imageUrls[index].endsWith('.webm');
-            return Container(
-              width: imageSize,
-              height: imageSize,
-              color: const Color(0xFFF6F5F3),
-              alignment: Alignment.center,
-              child: isVideo
-                  ? (_videoController != null &&
-                          _videoController!.value.isInitialized
-                      ? AspectRatio(
-                          aspectRatio: _videoController!.value.aspectRatio,
-                          child: VideoPlayer(_videoController!),
-                        )
-                      : const CircularProgressIndicator())
-                  : Image.network(
-                      widget.imageUrls[index],
-                      fit: BoxFit.contain,
-                      width: imageSize,
-                      height: imageSize,
-                    ),
-            );
-          },
-          options: CarouselOptions(
+  return Stack(
+    children: [
+      CarouselSlider.builder(
+        itemCount: widget.imageUrls.length,
+        itemBuilder: (context, index, _) {
+          final isVideo = widget.imageUrls[index].endsWith('.webm');
+          return Container(
+            width: imageSize,
             height: imageSize,
-            viewportFraction: 1.0,
-            onPageChanged: (index, reason) {
-              setState(() {
-                _currentIndex = index;
-              });
-              _initializeVideoController();
-            },
-          ),
+            color: const Color(0xFFF6F5F3),
+            alignment: Alignment.center,
+            child: isVideo
+                ? (_videoController != null &&
+                        _videoController!.value.isInitialized
+                    ? AspectRatio(
+                        aspectRatio: _videoController!.value.aspectRatio,
+                        child: VideoPlayer(_videoController!),
+                      )
+                    : const CircularProgressIndicator())
+                : Image.network(
+                    widget.imageUrls[index],
+                    fit: BoxFit.contain,
+                    width: imageSize,
+                    height: imageSize,
+                  ),
+          );
+        },
+        options: CarouselOptions(
+          height: imageSize,
+          viewportFraction: 1.0,
+          onPageChanged: (index, reason) {
+            setState(() {
+              _currentIndex = index;
+            });
+            _initializeVideoController();
+          },
         ),
-        Positioned(
-          bottom: 8,
-          left: 0,
-          right: 0,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: widget.imageUrls.map((url) {
-              final index = widget.imageUrls.indexOf(url);
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                width: _currentIndex == index ? 12.0 : 8.0,
-                height: _currentIndex == index ? 12.0 : 8.0,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _currentIndex == index
-                      ? Color(0xFF333333)
-                      : Color(0xFFC7C7C7),
-                ),
-              );
-            }).toList(),
-          ),
+      ),
+      Positioned(
+        bottom: 8,
+        left: 0,
+        right: 0,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Ограничиваем отображение до 5 индикаторов
+            ...widget.imageUrls
+                .take(4)
+                .map((url) {
+                  final index = widget.imageUrls.indexOf(url);
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                    width: _currentIndex == index ? 12.0 : 8.0,
+                    height: _currentIndex == index ? 12.0 : 8.0,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _currentIndex == index
+                          ? const Color(0xFF333333)
+                          : const Color(0xFFC7C7C7),
+                    ),
+                  );
+                })
+                .toList(),
+            // Добавляем индикатор "еще", если фотографий больше 5
+            if (widget.imageUrls.length > 5)
+              const SizedBox(width: 8),
+              const Text(
+                '+',
+                style: TextStyle(color: Color(0xFF333333)),
+              ),
+          ],
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
 }

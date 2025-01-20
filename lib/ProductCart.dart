@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 import 'image_carousel.dart';
 import 'db_class.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'shared_utils.dart';
 
 enum LayoutType { vertical, horizontal, grid }
 final dbHelper = DatabaseHelper();
+final shared = SharedUtils();
+final userdata = dbHelper.getLoginData();
 
 class ProductCart extends StatefulWidget {
   final int? gendrCode;
   final int maxItems;
   final LayoutType layoutType;
+  final String? hashtag;
 
   ProductCart({
     Key? key,
     required this.gendrCode,
     this.maxItems = 10,
     this.layoutType = LayoutType.vertical,
+    this.hashtag = null,
   }) : super(key: key);
 
   @override
@@ -36,7 +43,8 @@ class _ProductCartState extends State<ProductCart> {
   Future<void> _loadProducts() async {
     _products = await DatabaseHelper.fetchProducts(
       gendrCode: widget.gendrCode,
-      maxItems: widget.maxItems,
+      maxItems: widget.maxItems, 
+      hashtag: widget.hashtag,
     );
 
     _groupedProducts = {};
@@ -66,6 +74,82 @@ class _ProductCartState extends State<ProductCart> {
     _currentProducts[article] = product;
   });
 }
+void _addToCart(int productId, int sizeId) async {
+  final userData = await dbHelper.getLoginData();
+  bool isUserLoggedIn = userData.isNotEmpty;
+
+  if (isUserLoggedIn) {
+    // Если пользователь авторизован, сохраняем в базе данных
+    final isSuccess = await dbHelper.addToCart(productId, sizeId, userData["userId"]);
+    if (isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Товар добавлен в корзину!')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось добавить товар в корзину.')),
+      );
+    }
+  } else {
+    // Если пользователь не авторизован, сохраняем в локальное хранилище
+    await shared.addToCartLocally(productId, sizeId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Товар добавлен в локальную корзину!')),
+    );
+  }
+}
+
+
+void _showSizeSelectionBottomSheet(BuildContext context, int productId) async {
+  final sizes = await dbHelper.fetchProductSizes(productId);
+
+  if (sizes.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Размеры недоступны для этого товара.')),
+    );
+    return;
+  }
+
+  showModalBottomSheet(
+    context: context,
+    builder: (context) {
+      return ListView.builder(
+        itemCount: sizes.length,
+        itemBuilder: (context, index) {
+          final size = sizes[index];
+          return ListTile(
+            title: Text('${size['Международный']} (${size['Российский']})'),
+            subtitle: Text('На складе: ${size['КоличествоНаСкладе']}'),
+            onTap: () {
+              if (userdata != null)
+              {
+                  final sizeId = size['РазмерID'];
+                  if (sizeId != null) {
+                    _addToCart(productId, sizeId); // Только если sizeId не null
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Вы выбрали размер ${size['Международный']} (${size['Российский']}).',
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка: РазмерID отсутствует.')),
+                    );
+                  }
+              }
+              
+            },
+
+          );
+        },
+      );
+    },
+  );
+}
+
 
 
   Widget buildProductCard(dynamic product) {
@@ -161,7 +245,7 @@ return Card(
             Spacer(),
             IconButton(
               onPressed: () {
-                // Добавить функционал для добавления в корзину
+                _showSizeSelectionBottomSheet(context, product['ТоварID']);
               },
               icon: Icon(Icons.shopping_cart),
               color: Color(0xFF333333),

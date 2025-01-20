@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
 
   Widget _getHomePage() {
     if (kIsWeb) {
-      return DesktopProductList(); // Для Web
+      return MobileNavigationBar(); // Для Web
     }
 
     switch (defaultTargetPlatform) {
@@ -40,7 +40,7 @@ class MyApp extends StatelessWidget {
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
       case TargetPlatform.linux:
-        return MobileHomePage(); // Для ПК
+        return MobileNavigationBar(); // Для ПК
       default:
         return MobileNavigationBar(); // По умолчанию мобильная версия
     }
