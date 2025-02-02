@@ -4,7 +4,7 @@ import 'authorization.dart';
 import 'account_page.dart';
 import 'db_class.dart';
 import 'CartCard.dart';
-
+import 'ProductPage.dart';
 final dbHelper = DatabaseHelper();
 
 void main() => runApp(const MobileNavigationBar());
@@ -18,6 +18,7 @@ class MobileNavigationBar extends StatelessWidget {
   }
 }
 
+
 class NavigationExample extends StatefulWidget {
   const NavigationExample({super.key});
 
@@ -28,6 +29,8 @@ class NavigationExample extends StatefulWidget {
 class _NavigationExampleState extends State<NavigationExample> {
   int currentPageIndex = 0;
   Map<String, dynamic>? userData;
+  final GlobalKey<CartScreenState> cartScreenKey = GlobalKey<CartScreenState>();
+
 
   @override
   void initState() {
@@ -45,7 +48,6 @@ class _NavigationExampleState extends State<NavigationExample> {
   void switchToHomePage() async {
     await loadUserData();
     setState(() {
-      //currentPageIndex = userData != null ? 1 : 1;
       currentPageIndex = 0;
     });
   }
@@ -58,24 +60,28 @@ class _NavigationExampleState extends State<NavigationExample> {
         onDestinationSelected: (int index) {
           setState(() {
             currentPageIndex = index;
+            if (index == 2) {
+              cartScreenKey.currentState?.refreshCart();
+            }
           });
         },
         destinations: const <Widget>[
           NavigationDestination(icon: Icon(Icons.home), label: ''),
-          NavigationDestination(icon: Icon(Icons.person), label: ''),
+          NavigationDestination(icon: Icon(Icons.search), label: ''),
           NavigationDestination(icon: Icon(Icons.shopping_cart), label: ''),
-          NavigationDestination(icon: Icon(Icons.login), label: ''),
-        ],
-      ),
-      body: IndexedStack(
+          NavigationDestination(icon: Icon(Icons.login), label: ''),  
+          ],
+      ),  
+          body: IndexedStack(
         index: currentPageIndex,
         children: [
           MobileHomePage(),
-          const Center(child: Text('Search Page')),
-          CartScreen(),
+          ProductPage(article: '4420642842-37'),
+          //const Center(child: Text('Search Page')),
+          CartScreen(key: cartScreenKey),
           userData != null
-              ? AccountPage(userData: userData!, onSuccess: switchToHomePage) // Передаём данные в AccountPage
-              : Authorization(onSuccess: switchToHomePage), // Страница авторизации
+              ? AccountPage(userData: userData!, onSuccess: switchToHomePage)
+              : Authorization(onSuccess: switchToHomePage),
         ],
       ),
     );

@@ -34,7 +34,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         centerTitle: true,
         title: const Text(
-          'Yikes',
+          'Keynes',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'BlackOpsOne',
@@ -61,14 +61,14 @@ class _HomePageState extends State<HomePage> {
                   return const Center(child: Text('No images available'));
                 } else {
                   return SizedBox(
-                    height: 300,
+                    height: 200,
                     width: double.infinity,
                     child: PageView.builder(
                       itemCount: snapshot.data!.length,
                       itemBuilder: (context, index) {
                         return Image.network(
                           snapshot.data![index],
-                          fit: BoxFit.cover,
+                          fit: BoxFit.scaleDown ,
                         );
                       },
                     ),
@@ -221,6 +221,21 @@ class _HomePageState extends State<HomePage> {
                 },
               ),
             ),
+            const SizedBox(height: 20),
+SizedBox(
+  
+  child: LayoutBuilder(
+    builder: (context, constraints) {
+      return ProductCart(
+        key: ValueKey(selectedCategory),
+        gendrCode: selectedCategory == 'Мужчинам' ? 1 : 2,
+        layoutType: LayoutType.grid,
+      );
+    },
+  ),
+),
+
+
           ],
         ),
       ),

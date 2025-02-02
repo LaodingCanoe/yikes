@@ -5,34 +5,75 @@ import 'db_class.dart';
 final dbHelper = DatabaseHelper();
 
 class CartScreen extends StatefulWidget {
+  final VoidCallback? onTabSelected;
+
+  const CartScreen({this.onTabSelected, Key? key}) : super(key: key);
+
   @override
-  _CartScreenState createState() => _CartScreenState();
+  CartScreenState createState() => CartScreenState();
 }
 
-class _CartScreenState extends State<CartScreen> {
+class CartScreenState extends State<CartScreen> {
   late Future<List<dynamic>> _cartItems;
   int userID = 0;
-  bool selectAll = true;
+  bool selectAll = false;
+  Set<int> selectedItems = {}; // Хранит ID выбранных товаров
 
+ 
   @override
   void initState() {
     super.initState();
     _initializeUserData();
   }
 
+  void refreshCart() {
+    _initializeUserData();
+  }
+
   Future<void> _initializeUserData() async {
     final userData = await dbHelper.getLoginData();
     setState(() {
-      userID = userData["userId"];
+      userID = userData["userId"] ?? 0;
     });
+    print("UserID: $userID");
     _loadCartItems();
   }
 
   void _loadCartItems() {
     setState(() {
-      _cartItems = dbHelper.fetchCart(userId: userID, productID: null);
+      if (userID == 0) {
+        _cartItems = dbHelper.getCartData().then((data) {
+          print("Неавторизованный пользователь. Данные: $data");
+          if (data.isEmpty || data.any((item) => item is! Map<String, dynamic>)) {
+            print("Ошибка: данные имеют неверный формат или пустые");
+            return [];
+          }
+          return data;
+        });
+      } else {
+        _cartItems = dbHelper.fetchCart(userId: userID).then((data) {
+          print("Авторизованный пользователь. Данные: $data");
+          return data;
+        });
+      }
     });
   }
+
+
+
+  void _updateSelectAll(bool value, List<dynamic> cartItems) {
+  setState(() {
+    selectAll = value;
+    selectedItems = value
+        ? cartItems.map<int>((item) => item['ТоварРазмерID']).toSet()
+        : {};
+  });
+}
+   double _calculateTotalPrice(List<dynamic> cartItems) {
+    return cartItems
+        .where((item) => selectedItems.contains(item['ТоварРазмерID']))
+        .fold(0.0, (total, item) => total + (item['Цена'] * item['Количество']));
+   }
 
   @override
   void didUpdateWidget(covariant CartScreen oldWidget) {
@@ -40,11 +81,22 @@ class _CartScreenState extends State<CartScreen> {
     _loadCartItems();
   }
 
+
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Корзина'),
+        centerTitle: true,
+        title: const Text(
+          'Корзина',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontFamily: 'BlackOpsOne',
+            fontSize: 30.0,             
+          ),
+        ),
         
       ),
       body: Column(
@@ -66,16 +118,31 @@ class _CartScreenState extends State<CartScreen> {
                       onChanged: (value) {
                         setState(() {
                           selectAll = value ?? false;
+                          _cartItems.then((cartItems) {
+                          _updateSelectAll(value ?? false, cartItems);});
                         });
                       },
                     ),
                     Text('Выбрать всё'),
                     Spacer(),
                     ElevatedButton(
-                      onPressed: () {
-                        // Logic to delete selected items
-                      },
-                      child: Text('Удалить выбранное'),
+                      onPressed: selectedItems.isNotEmpty
+                      ? () {
+                          for (var itemId in selectedItems) {
+                            dbHelper.deleteCart(product_sizeID: itemId, userID: userID); 
+                            selectAll = false;
+                          }
+                          _loadCartItems();
+                        }
+                      : null,
+                      style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 194, 64, 64),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:  BorderRadius.circular(10),
+                      ),
+                    ),
+                  child: Text('Удалить выбранное'),
                     ),
                   ],
                 ),
@@ -102,8 +169,29 @@ class _CartScreenState extends State<CartScreen> {
                       return CartItemCard(
                         item: item,
                         userID: userID,
+                        isSelected: selectedItems.contains(item['ТоварРазмерID']),
+                        onSelected: (isSelected) {
+                          setState(() {
+                            if (isSelected) {
+                              selectedItems.add(item['ТоварРазмерID']);
+                            } else {
+                              selectedItems.remove(item['ТоварРазмерID']);
+                            }
+                            selectAll = selectedItems.length == cartItems.length;
+                          });
+                        },
                         onQuantityChanged: (newQuantity) async {
-                          _loadCartItems();
+                          if (userID == 0) {
+                            final currentCart = await dbHelper.getCartData();
+                            final itemIndex = currentCart.indexWhere((i) => i['ТоварРазмерID'] == item['ТоварРазмерID']);
+                            if (itemIndex != -1) {
+                              currentCart[itemIndex]['Количество'] = newQuantity;
+                              await dbHelper.saveCartToStorage(currentCart);
+                            }
+                          } else {
+                            await dbHelper.updateCart(productID: item['ТоварРазмерID'], plus: newQuantity > item['Количество'], userID: userID);
+                          }
+                          onUpdateCart: _loadCartItems;
                         },
                         onDelete: () async {
                           _loadCartItems();
@@ -122,15 +210,37 @@ class _CartScreenState extends State<CartScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Итоговая цена: 0 ₽', // Replace with actual calculation
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                FutureBuilder<List<dynamic>>(
+                  future: _cartItems,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      return Text(
+                        '${_calculateTotalPrice(snapshot.data!).toStringAsFixed(2)} ₽',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      );
+                    } else {
+                      return Text('0 ₽',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold));
+                    }
+                  },
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    // Logic for proceeding to checkout
-                  },
-                  child: Text('Перейти к оформлению'),
+                    onPressed: () {
+                      final _user = dbHelper.getLoginData();
+                      setState(() {
+                        //_user = _user['_user'];
+                        print("userID = ${_user}");
+                       ;
+                      });
+                    },
+                style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF333333),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:  BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Перпейти к оформлению'),
                 ),
               ],
             ),
@@ -144,30 +254,113 @@ class _CartScreenState extends State<CartScreen> {
 
 class CartItemCard extends StatelessWidget {
   final dynamic item;
+  final bool isSelected;
+  final ValueChanged<bool> onSelected;
   final int userID; // Добавляем userID как параметр
   final ValueChanged<int> onQuantityChanged;
   final VoidCallback onDelete;
   final VoidCallback onUpdateCart;
+  
 
   CartItemCard({
     required this.item,
     required this.userID, // Добавляем userID в конструктор
+    required this.isSelected,
+    required this.onSelected,
     required this.onQuantityChanged,
     required this.onDelete,
     required this.onUpdateCart,
   });
 
+void _addToCart(int productId, int sizeId) async {
+  final userData = await dbHelper.getLoginData();
+  bool isUserLoggedIn = userData["userId"] != null;
+  print('login? ${isUserLoggedIn}');
+
+  if (isUserLoggedIn) {
+    // Если пользователь авторизован, сохраняем в базе данных
+    
+    dbHelper.deleteCart(product_sizeID: item['ТоварРазмерID'], userID: userID);
+    final isSuccess = await dbHelper.addToCart(productId, sizeId, userData["userId"], null);
+      
+  onUpdateCart();  
+  
+    
+  } else {
+    // Если пользователь не авторизован, сохраняем в локальное хранилище
+    print('size: ${sizeId}');
+    await dbHelper.fetchAndSaveCartData(sizeId);
+    
+  }
+}
+
+void _showSizeSelectionBottomSheet(BuildContext context, int productId) async {
+  final sizes = await dbHelper.fetchProductSizes(productId);
+
+  if (sizes.isEmpty) {
+    // Если размеры недоступны, выводим сообщение
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Размеры недоступны для этого товара.')),
+    );
+    return;
+  }
+
+  if (sizes.length == 1) {    
+    return;
+  }
+
+  // Если доступно несколько размеров, показываем плашку
+  showModalBottomSheet(
+    context: context,
+    builder: (context) {
+      return Container(
+        height: sizes.length * 80.0, // Высота плашки зависит от количества размеров
+        child: ListView.builder(
+          shrinkWrap: true, // Make sure this is within ListView
+          physics: NeverScrollableScrollPhysics(),
+          itemCount: sizes.length,
+          itemBuilder: (context, index) {
+            final size = sizes[index];
+            return ListTile(
+              title: Text('${size['Размер']}'),
+              subtitle: Text('На складе: ${size['КоличествоНаСкладе']}'),
+              onTap: () {
+                final sizeId = size['РазмерID'];
+                if (sizeId != null) {
+                  _addToCart(productId, sizeId);
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Вы выбрали размер ${size['Размер']}.',
+                      ),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: РазмерID отсутствует.')),
+                  );
+                }
+              },
+            );
+          },
+        ),
+      );
+    },
+  );
+}
+
 @override
 Widget build(BuildContext context) {
   return Card(
     margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-    child: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          Row(
+    child: Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
             children: [
-              Stack(
+              Row(
                 children: [
                   FutureBuilder<List<String>>(
                     future: DatabaseHelper.fetchProductImages(item['ТоварID']),
@@ -191,122 +384,127 @@ Widget build(BuildContext context) {
                           height: 150,
                           child: ProductImageCarousel(
                             imageUrls: snapshot.data!,
+                            isCompact: true,
                           ),
                         );
                       }
                     },
                   ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    child: Checkbox(
-                      value: true, // По умолчанию включено
-                      onChanged: (value) {
-                        // Логика обработки изменения статуса галочки
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                  height: 46, // Высота для двух строк текста
-                  child: Text(
-                      item['Название'] ?? 'Название товара',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      '${item['Цена']} ₽',
-                      style: TextStyle(fontSize: 16, color: Colors.green),
-                    ),
-                    SizedBox(height: 8),
-                    // Цвета и размеры
-                    Row(
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Цвета товара
-                        if (item['КодЦвета'] != null)
-                          GestureDetector(
-                            onTap: () {
-                              // Логика для изменения цвета
-                            },
-                            child: Container(
-                              margin: EdgeInsets.symmetric(horizontal: 4.0),
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Color(int.parse(item['КодЦвета'].replaceFirst('#', '0xff'))),
-                                shape: BoxShape.circle,
+                        SizedBox(
+                          height: 46, // Высота для двух строк текста
+                          child: Text(
+                            item['Название'] ?? 'Название товара',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          '${item['Цена']} ₽',
+                          style: TextStyle(fontSize: 16, color: Colors.green),
+                        ),
+                        SizedBox(height: 8),
+                        // Цвета и размеры
+                        Row(
+                          children: [
+                            if (item['КодЦвета'] != null)
+                              GestureDetector(
+                                onTap: () {
+                                  // Логика для изменения цвета
+                                },
+                                child: Container(
+                                  margin: EdgeInsets.symmetric(horizontal: 4.0),
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Color(int.parse(item['КодЦвета'].replaceFirst('#', '0xff'))),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                 _showSizeSelectionBottomSheet(context, item['ТоварID']);
+                              },
+                              style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF333333),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10.0)
+                                  ),
+                            ),
+                              child: Text(
+                                '${item['Размер'] ?? 'Размер'}', style:TextStyle(color: Colors.white),
                               ),
                             ),
-                          ),
-                        SizedBox(width: 8),
-                        // Кнопка размера
-                        ElevatedButton(
-                          onPressed: () {
-                            // Логика для выбора размера
-                          },
-                          child: Text(
-                            '${item['Международный'] ?? 'Размер'} (${item['Российский'] ?? ''})',
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          Divider(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              TextButton.icon(
-                onPressed: () {
-                  dbHelper.deleteCart(productID: item['ТоварРазмерID'], userID: userID);
-                  onUpdateCart();
-                },
-                icon: Icon(Icons.delete, color: Colors.red),
-                label: Text('Удалить'),
-              ),
+              Divider(),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton(
+                  TextButton.icon(
                     onPressed: () {
-                      if (item['Количество'] > 1) {
-                        onQuantityChanged(item['Количество'] - 1);
-                        dbHelper.updateCart(productID: item['ТоварРазмерID'], plus: false, userID: userID);
-                        onUpdateCart();
-                      }
-                    },
-                    icon: Icon(Icons.remove_circle, color: Colors.grey),
-                  ),
-                  Text(
-                    '${item['Количество'] ?? 1}',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                  IconButton(
-                    onPressed: () {
-                      onQuantityChanged(item['Количество'] + 1);
-                      dbHelper.updateCart(productID: item['ТоварРазмерID'], plus: true, userID: userID);
+                      dbHelper.deleteCart(product_sizeID: item['ТоварРазмерID'], userID: userID);
                       onUpdateCart();
                     },
-                    icon: Icon(Icons.add_circle, color: Colors.grey),
+                    icon: Icon(Icons.delete, color: Colors.red),
+                    label: Text('Удалить'),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          if (item['Количество'] > 1) {
+                            onQuantityChanged(item['Количество'] - 1);
+                            dbHelper.updateCart(product_sizeID: item['ТоварРазмерID'], plus: false, userID: userID);
+                            onUpdateCart();
+                          }
+                        },
+                        icon: Icon(Icons.remove_circle, color: Colors.grey),
+                      ),
+                      Text(
+                        '${item['Количество'] ?? 1}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          onQuantityChanged(item['Количество'] + 1);
+                          dbHelper.updateCart(product_sizeID: item['ТоварРазмерID'], plus: true, userID: userID);
+                          onUpdateCart();
+                        },
+                        icon: Icon(Icons.add_circle, color: Colors.grey),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        // Checkbox в верхнем левом углу карточки
+        Positioned(
+          top: -5,
+          left: -5,
+          child: Checkbox(
+            value: isSelected, // По умолчанию true
+            onChanged: (value) => onSelected(value ?? false),
+          ),
+        ),
+      ],
     ),
   );
 }
+
 }

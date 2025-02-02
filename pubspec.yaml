@@ -25,6 +25,7 @@ dependencies:
   video_player: ^2.9.2
   flutter_secure_storage: ^9.2.3
   bcrypt: ^1.1.3
+  cached_network_image: ^3.2.3
   
 
 dev_dependencies:
@@ -38,6 +39,7 @@ flutter:
     - assets/search.png
     - assets/default_avatar.png
     - assets/placeholder.png
+    - assets/brand_logo.png
   fonts:
   - family: GOST
     fonts:
