@@ -158,7 +158,8 @@ class _HomePageState extends State<HomePage> {
                               color: Colors.black.withOpacity(0.5),
                               child: Text(
                                 item['Название'].toUpperCase(),
-                                style: const TextStyle(
+                                textAlign: TextAlign.center,  
+                                style: const TextStyle(                                                                
                                   color: Colors.white,
                                   fontFamily: 'BlackOpsOne',
                                   fontSize: 24,
@@ -230,6 +231,7 @@ SizedBox(
         key: ValueKey(selectedCategory),
         gendrCode: selectedCategory == 'Мужчинам' ? 1 : 2,
         layoutType: LayoutType.grid,
+        shuffle: true,
       );
     },
   ),

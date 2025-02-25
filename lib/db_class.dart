@@ -47,6 +47,7 @@ class DatabaseHelper {
         final data = jsonDecode(response.body);
         if (data is List) {
           return data.map((item) => {
+            'ID': item['ID'],
             'ПутьФото': item['ПутьФото'],
             'Название': item['Название']
           }).toList();
@@ -65,7 +66,9 @@ static Future<List<dynamic>> fetchProducts({
   int? gendrCode,
   int? categoryId,
   int? obraz,
+  String? search,
   String? hashtag,
+  int? subcategory,
   int maxItems = 1000,
 }) async {
   try {
@@ -73,8 +76,10 @@ static Future<List<dynamic>> fetchProducts({
     final queryParameters = {
       if (gendrCode != null) 'gendrCode': gendrCode.toString(),
       if (categoryId != null) 'categoryId': categoryId.toString(),
+      if (subcategory != null) 'subcategory': subcategory,
       if (hashtag != null) 'hashtag': hashtag,
       if (obraz != null) 'obraz': obraz.toString(),
+      if (search != null) 'search': search.toString(),
     };
 
     final uri = Uri.http(

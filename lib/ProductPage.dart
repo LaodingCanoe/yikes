@@ -23,13 +23,14 @@ class _ProductPageState extends State<ProductPage> {
   int productId = 0;
   Future<Map<String, dynamic>?>? sizesForSelectedColor;
   bool obraz = false;
-  final userId = 26;
   Future<List<String>>? _imagesFuture;
   Future<List<Map<String, dynamic>>>? _sizesFuture;
+  int userID = 0;
 
 @override
 void initState() {
-  super.initState();
+  super.initState();  
+  _initializeUserData();
   _productFuture = dbHelper.fetchProduct(widget.article);
   _productFuture?.then((product) {
     if (product != null) {      
@@ -53,6 +54,18 @@ void initState() {
     }
   });
 }
+// @override
+// void didChangeDependencies() {
+//     super.didChangeDependencies();
+//     initState();
+// }
+Future<void> _initializeUserData() async {
+    final userData = await dbHelper.getLoginData();
+    setState(() {
+      userID = userData["userId"] ?? 0;
+    });
+    print("UserID: $userID");
+  }
 
 void _selectColor(String color, Map<String, dynamic> product) async {
   setState(() {
@@ -86,7 +99,7 @@ void _selectSize(int sizeId) async {
 }
 
 Future<void> _updateCartQuantity(int productId, int sizeId) async {
-  final cartItems = await dbHelper.fetchCart(userId: userId, productID: productId, sizeID: sizeId);
+  final cartItems = await dbHelper.fetchCart(userId: userID, productID: productId, sizeID: sizeId);
   
   print('productID in cart: ${productId}');
   if (cartItems.isNotEmpty) {
@@ -392,6 +405,7 @@ void _onHashtagTap(String hashtag) {
                               return ProductCart(          
                                 layoutType: LayoutType.horizontal,
                                 obraz: product['obraz'],
+                                excludeProductIds: [product['id']],
                               );
                             },
                           ),
@@ -411,10 +425,13 @@ void _onHashtagTap(String hashtag) {
                                 gendrCode: product['genderId'],
                                 layoutType: LayoutType.grid,
                                 categories: product['categoryId'],
+                                excludeProductIds: [product['id']],
                               );
                             },
                           ),
                         ),
+
+                        
                       ]
                     ],                    
                   ),                  
@@ -428,7 +445,7 @@ void _onHashtagTap(String hashtag) {
                   child: _cartQuantity == 0
                       ? ElevatedButton(
                           onPressed: (_selectedColor != null && _selectedSize != null)
-                              ? () => _addToCart(productId, _selectedSize!, userId)
+                              ? () => _addToCart(productId, _selectedSize!, userID)
                               : null,
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 50),
@@ -463,13 +480,13 @@ void _onHashtagTap(String hashtag) {
                               children: [
                                 IconButton(
                                   onPressed: () => _cartQuantity == 1
-                                      ? _removeFromCart(product['id'], _selectedSize, userId)
-                                      : _updateCart(product['id'], _selectedSize, false, userId),
+                                      ? _removeFromCart(product['id'], _selectedSize, userID)
+                                      : _updateCart(product['id'], _selectedSize, false, userID),
                                   icon: const Icon(Icons.remove),
                                 ),
                                 Text('$_cartQuantity', style: const TextStyle(fontSize: 18)),
                                 IconButton(
-                                  onPressed: () => _updateCart(product['id'], _selectedSize, true, userId),
+                                  onPressed: () => _updateCart(product['id'], _selectedSize, true, userID),
                                   icon: const Icon(Icons.add),
                                 ),
                               ],

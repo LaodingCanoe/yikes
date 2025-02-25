@@ -5,6 +5,9 @@ import 'account_page.dart';
 import 'db_class.dart';
 import 'CartCard.dart';
 import 'ProductPage.dart';
+import 'EmailConfirmationPage.dart';
+import 'searchCart.dart';
+
 final dbHelper = DatabaseHelper();
 
 void main() => runApp(const MobileNavigationBar());
@@ -18,7 +21,6 @@ class MobileNavigationBar extends StatelessWidget {
   }
 }
 
-
 class NavigationExample extends StatefulWidget {
   const NavigationExample({super.key});
 
@@ -30,7 +32,6 @@ class _NavigationExampleState extends State<NavigationExample> {
   int currentPageIndex = 0;
   Map<String, dynamic>? userData;
   final GlobalKey<CartScreenState> cartScreenKey = GlobalKey<CartScreenState>();
-
 
   @override
   void initState() {
@@ -55,7 +56,22 @@ class _NavigationExampleState extends State<NavigationExample> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: Padding(
+  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Меньше отступов
+  child: Container(
+    height: 60, // Фиксированная высота панели
+    decoration: BoxDecoration(
+      color: Color(0xFF5D5755),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: NavigationBarTheme(
+      data: NavigationBarThemeData(
+        height: 50, // Уменьшаем высоту самой навигационной панели
+        labelTextStyle: MaterialStateProperty.all(TextStyle(fontSize: 0)), // Убираем подписи
+      ),
+      child: NavigationBar(
+        backgroundColor: Colors.transparent,
+        indicatorColor: Colors.white,
         selectedIndex: currentPageIndex,
         onDestinationSelected: (int index) {
           setState(() {
@@ -65,19 +81,34 @@ class _NavigationExampleState extends State<NavigationExample> {
             }
           });
         },
-        destinations: const <Widget>[
-          NavigationDestination(icon: Icon(Icons.home), label: ''),
-          NavigationDestination(icon: Icon(Icons.search), label: ''),
-          NavigationDestination(icon: Icon(Icons.shopping_cart), label: ''),
-          NavigationDestination(icon: Icon(Icons.login), label: ''),  
-          ],
-      ),  
-          body: IndexedStack(
+        destinations: [
+          NavigationDestination(
+            icon: Icon(Icons.home, color: currentPageIndex == 0 ? Color(0xFF333333) : Colors.white),
+            label: '',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.search, color: currentPageIndex == 1 ? Color(0xFF333333) : Colors.white),
+            label: '',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.shopping_cart, color: currentPageIndex == 2 ? Color(0xFF333333) : Colors.white),
+            label: '',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.login, color: currentPageIndex == 3 ? Color(0xFF333333) : Colors.white),
+            label: '',
+          ),
+        ],
+      ),
+    ),
+  ),
+),
+
+      body: IndexedStack(
         index: currentPageIndex,
         children: [
           MobileHomePage(),
-          ProductPage(article: '4420642842-37'),
-          //const Center(child: Text('Search Page')),
+          SearchPage(),
           CartScreen(key: cartScreenKey),
           userData != null
               ? AccountPage(userData: userData!, onSuccess: switchToHomePage)

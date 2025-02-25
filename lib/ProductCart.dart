@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'shared_utils.dart';
 import 'ProductPage.dart';
-
+import 'dart:math';
 enum LayoutType { vertical, horizontal, grid }
 final dbHelper = DatabaseHelper();
 final shared = SharedUtils();
@@ -15,18 +15,26 @@ class ProductCart extends StatefulWidget {
   final int? gendrCode;
   final int? obraz;
   final int? categories;
+  final int? subcategory;
   final int maxItems;
   final LayoutType layoutType;
   final String? hashtag;
+  final bool shuffle;
+  final List<int>? excludeProductIds;
+  final String? searchQuery;
 
   ProductCart({
     Key? key,
     this.gendrCode,
     this.categories = null,
-    this.maxItems = 10,
+    this.subcategory = null,
+    this.maxItems = 1000,
     this.layoutType = LayoutType.vertical,
     this.hashtag = null,
     this.obraz = null,
+    this.shuffle = false,
+    this.excludeProductIds,
+    this.searchQuery = null,
   }) : super(key: key);
 
   @override
@@ -55,7 +63,17 @@ class _ProductCartState extends State<ProductCart> {
       hashtag: widget.hashtag,
       obraz: widget.obraz,
       categoryId: widget.categories,
+      subcategory: widget.subcategory,
+      search: widget.searchQuery,
     );
+    if (widget.excludeProductIds != null) {
+      _products.removeWhere((product) => widget.excludeProductIds!.contains(product['ТоварID']));
+    }
+
+    // Перемешиваем список, если указано
+    if (widget.shuffle) {
+      _products.shuffle(Random());
+    }
 
     _groupedProducts = {};
     _currentProducts = {};

@@ -25,6 +25,13 @@ class CartScreenState extends State<CartScreen> {
     super.initState();
     _initializeUserData();
   }
+  @override
+void didChangeDependencies() {
+  super.didChangeDependencies();
+  _loadCartItems();
+}
+
+
 
   void refreshCart() {
     _initializeUserData();
@@ -39,25 +46,17 @@ class CartScreenState extends State<CartScreen> {
     _loadCartItems();
   }
 
-  void _loadCartItems() {
-    setState(() {
-      if (userID == 0) {
-        _cartItems = dbHelper.getCartData().then((data) {
-          print("Неавторизованный пользователь. Данные: $data");
-          if (data.isEmpty || data.any((item) => item is! Map<String, dynamic>)) {
-            print("Ошибка: данные имеют неверный формат или пустые");
-            return [];
-          }
-          return data;
-        });
-      } else {
-        _cartItems = dbHelper.fetchCart(userId: userID).then((data) {
-          print("Авторизованный пользователь. Данные: $data");
-          return data;
-        });
-      }
-    });
+Future<void> _loadCartItems() async {
+  List<dynamic> items;
+  if (userID == 0) {
+    items = await dbHelper.getCartData();
+  } else {
+    items = await dbHelper.fetchCart(userId: userID);
   }
+  setState(() {
+    _cartItems = Future.value(items);
+  });
+}
 
 
 
@@ -76,10 +75,35 @@ class CartScreenState extends State<CartScreen> {
    }
 
   @override
-  void didUpdateWidget(covariant CartScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _loadCartItems();
-  }
+void didUpdateWidget(covariant CartScreen oldWidget) {
+  super.didUpdateWidget(oldWidget);
+  Future.microtask(() => _loadCartItems());
+}
+  Future<void> _confirmDeletion(BuildContext context, int productSizeID) async {
+    bool? confirm = await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+            title: Text("Удаление товара"),
+            content: Text("Вы уверены, что хотите удалить этот товар?"),
+            actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text("Отмена"),
+                ),
+                TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text("Удалить", style: TextStyle(color: Colors.red)),
+                ),
+            ],
+        ),
+    );
+
+    if (confirm == true) {
+        await dbHelper.deleteCart(product_sizeID: productSizeID, userID: userID);
+        await _loadCartItems();
+    }
+}
+
 
 
 
@@ -125,7 +149,7 @@ class CartScreenState extends State<CartScreen> {
                     ),
                     Text('Выбрать всё'),
                     Spacer(),
-                    ElevatedButton(
+                    ElevatedButton(                      
                       onPressed: selectedItems.isNotEmpty
                       ? () {
                           for (var itemId in selectedItems) {
@@ -181,21 +205,24 @@ class CartScreenState extends State<CartScreen> {
                           });
                         },
                         onQuantityChanged: (newQuantity) async {
-                          if (userID == 0) {
-                            final currentCart = await dbHelper.getCartData();
-                            final itemIndex = currentCart.indexWhere((i) => i['ТоварРазмерID'] == item['ТоварРазмерID']);
-                            if (itemIndex != -1) {
-                              currentCart[itemIndex]['Количество'] = newQuantity;
-                              await dbHelper.saveCartToStorage(currentCart);
-                            }
-                          } else {
-                            await dbHelper.updateCart(productID: item['ТоварРазмерID'], plus: newQuantity > item['Количество'], userID: userID);
+                        if (userID == 0) {
+                          final currentCart = await dbHelper.getCartData();
+                          final itemIndex = currentCart.indexWhere((i) => i['ТоварРазмерID'] == item['ТоварРазмерID']);
+                          if (itemIndex != -1) {
+                            currentCart[itemIndex]['Количество'] = newQuantity;
+                            await dbHelper.saveCartToStorage(currentCart);
                           }
-                          onUpdateCart: _loadCartItems;
-                        },
-                        onDelete: () async {
+                        } else {
+                          await dbHelper.updateCart(productID: item['ТоварРазмерID'], plus: newQuantity > item['Количество'], userID: userID);
+                        }
+                        setState(() {
                           _loadCartItems();
+                        });
+                      },
+                        onDelete: () async {
+                          await _confirmDeletion(context, item['ТоварРазмерID']);
                         },
+
                         onUpdateCart: _loadCartItems,
                       );
                     },
@@ -225,23 +252,23 @@ class CartScreenState extends State<CartScreen> {
                   },
                 ),
                 ElevatedButton(
-                    onPressed: () {
-                      final _user = dbHelper.getLoginData();
-                      setState(() {
-                        //_user = _user['_user'];
-                        print("userID = ${_user}");
-                       ;
-                      });
-                    },
-                style: ElevatedButton.styleFrom(
+                  onPressed: selectedItems.isNotEmpty
+                      ? () {
+                          final _user = dbHelper.getLoginData();
+                          setState(() {
+                              print("userID = ${_user}");
+                          });
+                      }
+                      : null, // Кнопка будет неактивна, если нет выбранных товаров
+                  style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF333333),
-                      foregroundColor: Colors.white,
+                      foregroundColor: Color(0xFFC7C7C7),
                       shape: RoundedRectangleBorder(
-                        borderRadius:  BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(10),
                       ),
-                    ),
-                    child: const Text('Перпейти к оформлению'),
-                ),
+                  ),
+                  child: const Text('Перейти к оформлению'),
+              ),
               ],
             ),
           ),
@@ -493,12 +520,13 @@ Widget build(BuildContext context) {
             ],
           ),
         ),
-        // Checkbox в верхнем левом углу карточки
         Positioned(
           top: -5,
           left: -5,
           child: Checkbox(
-            value: isSelected, // По умолчанию true
+            checkColor: Colors.white,
+            activeColor: const Color(0xFF333333),
+            value: isSelected,
             onChanged: (value) => onSelected(value ?? false),
           ),
         ),
