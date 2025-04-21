@@ -9,7 +9,7 @@ const imageDirectory = 'W:/Lerning/Diplom/product_image/';
 const addImageDirectory = 'W:/Lerning/Diplom/add_image/';
 const categoriesImageDirectory = 'W:/Lerning/Diplom/categories_image/';
 const userAvatarDirectory = 'W:/Lerning/Diplom/userAvatar/';
-const serverIp = '172.20.10.5'; // Измените на нужный IP
+const serverIp = '192.168.0.103'; // Измените на нужный IP
 const port = 3000;
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
@@ -296,7 +296,6 @@ const jwt = require('jsonwebtoken');
 
 const CLIENT_ID = '988083805696-mdbm9be5cdm4ssb7ut33f1rhq1dvpkmd.apps.googleusercontent.com';
 
-const REDIRECT_URI = 'https://developers.google.com/oauthplayground';
 const REFRESH_TOKEN = '1//04lE7oxaix9Q0CgYIARAAGAQSNwF-L9IrTy9k3lDUZb9haA4_7ccjvRDDz7juRX106QWoX51Nz_CatmdjIyqu2BdW-4e7qU-HEt4';
 
 // Создаем OAuth2 клиент
