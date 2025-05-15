@@ -5,11 +5,14 @@ import 'package:video_player/video_player.dart';
 class ProductImageCarousel extends StatefulWidget {
   final List<String> imageUrls;
   final bool isCompact;
+  final BoxFit fit;
 
-  ProductImageCarousel({
+  const ProductImageCarousel({
+    Key? key,
     required this.imageUrls,
     this.isCompact = false,
-  });
+    this.fit = BoxFit.cover,
+  }) : super(key: key);
 
   @override
   _ProductImageCarouselState createState() => _ProductImageCarouselState();
@@ -63,38 +66,37 @@ class _ProductImageCarouselState extends State<ProductImageCarousel> {
     }
   }
 
-void _openFullscreenViewer(int initialIndex) {
-  if (widget.isCompact) return;
+  void _openFullscreenViewer(int initialIndex) {
+    if (widget.isCompact) return;
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.black.withOpacity(0.8),
-    builder: (context) {
-      return Container(
-        height: MediaQuery.of(context).size.height, // 80% от высоты экрана
-        child: PageView.builder(
-          itemCount: widget.imageUrls.length,
-          controller: PageController(initialPage: initialIndex),
-          itemBuilder: (context, index) {
-            return Center(
-              child: InteractiveViewer(
-                maxScale: 3.0,
-                child: Image.network(
-                  widget.imageUrls[index],
-                  fit: BoxFit.contain,
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black.withOpacity(0.8),
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height,
+          child: PageView.builder(
+            itemCount: widget.imageUrls.length,
+            controller: PageController(initialPage: initialIndex),
+            itemBuilder: (context, index) {
+              return Center(
+                child: InteractiveViewer(
+                  maxScale: 3.0,
+                  child: Image.network(
+                    widget.imageUrls[index],
+                    fit: BoxFit.contain,
+                  ),
                 ),
-              ),
-            );
-          },
-        ),
-      );
-    },
-  );
-}
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
-
-  @override
+    @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
@@ -105,31 +107,28 @@ void _openFullscreenViewer(int initialIndex) {
 
             return GestureDetector(
               onTap: () => _openFullscreenViewer(index),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Container(
-                  color: const Color(0xFFF6F5F3),
-                  child: isVideo
-                      ? (_videoController != null && _videoController!.value.isInitialized
-                          ? AspectRatio(
-                              aspectRatio: _videoController!.value.aspectRatio,
-                              child: VideoPlayer(_videoController!),
-                            )
-                          : _isVideoLoading
-                              ? const Center(child: CircularProgressIndicator())
-                              : const Center(child: Icon(Icons.error, color: Colors.red)))
-                      : Image.network(
-                          widget.imageUrls[index],
-                          fit: BoxFit.contain,
-                          width: double.infinity,
-                          height: double.infinity,
-                        ),
-                ),
+              child: Container(
+                color: const Color(0xFFF6F5F3),
+                child: isVideo
+                    ? (_videoController != null && _videoController!.value.isInitialized
+                        ? AspectRatio(
+                            aspectRatio: _videoController!.value.aspectRatio,
+                            child: VideoPlayer(_videoController!),
+                          )
+                        : _isVideoLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : const Center(child: Icon(Icons.error, color: Colors.red)))
+                    : Image.network(
+                        widget.imageUrls[index],
+                        fit: widget.fit,
+                        width: double.infinity,
+                        height: double.infinity,
+                      ),
               ),
             );
           },
           options: CarouselOptions(
-            height: widget.isCompact ? MediaQuery.of(context).size.width * 9 / 16 : 550,
+            aspectRatio: 3/4, // Фиксированное соотношение сторон
             viewportFraction: 1.0,
             onPageChanged: (index, reason) {
               setState(() => _currentIndex = index);

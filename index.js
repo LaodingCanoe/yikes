@@ -8,6 +8,7 @@ const app = express();
 const imageDirectory = 'W:/Lerning/Diplom/product_image/';
 const addImageDirectory = 'W:/Lerning/Diplom/add_image/';
 const categoriesImageDirectory = 'W:/Lerning/Diplom/categories_image/';
+const brandImageDirectory = 'W:/Lerning/Diplom/shops/';
 const userAvatarDirectory = 'W:/Lerning/Diplom/userAvatar/';
 const serverIp = '192.168.0.103'; // Измените на нужный IP
 const port = 3000;
@@ -34,15 +35,31 @@ const dbConfig = {
 };
 
 app.get('/products', async (req, res) => { 
-    const gendrCode = req.query.gendrCode;
-    const categoryId = req.query.categoryId;
-    const subcategory = req.query.subcategory;
-    const hashtag = req.query.hashtag;
-    const obraz = req.query.obraz;
-    const search = req.query.search;
+    const parseArray = (param) => {
+        if (Array.isArray(param)) return param;
+        if (typeof param === 'string') return param.split(',');
+        return [];
+    };
+
+    const parseNumber = (value) => {
+        const num = parseFloat(value);
+        return isNaN(num) ? null : num;
+    };
+
+    const categories = parseArray(req.query.categories);
+    const brands = parseArray(req.query.brands);
+    const colors = parseArray(req.query.colors); // Исправлено
+    const genders = parseArray(req.query.gender);
+    const tags = parseArray(req.query.tags);
+    const search = req.query.search; // Исправлено
+    const minPrice = parseNumber(req.query.minPrice);
+    const maxPrice = parseNumber(req.query.maxPrice);
+    const obraz = parseNumber(req.query.obraz);
 
     try {
         let pool = await sql.connect(dbConfig);
+        const request = pool.request();
+
         let query = `
             SELECT 
                 t.ТоварID,
@@ -58,41 +75,56 @@ app.get('/products', async (req, res) => {
                 МагазинID,
                 КоллекцияID,
                 t.Описание,
-                t.ДатаДобавления,                
-				o.ID AS ОбразID
+                t.ДатаДобавления,
+                o.ID AS ОбразID
             FROM Товары AS t
             JOIN Цвета AS c ON t.ЦветID = c.ID
             JOIN Подкатегория AS p ON t.ПодкатегорияID = p.ID
             JOIN Категория AS k ON p.КатегорияID = k.ID
             JOIN Бренды AS b ON t.БрендID = b.ID
             JOIN Гендер AS g ON t.ГендерID = g.ID            
-			LEFT JOIN Образы AS o ON t.ТоварID = o.ТоварID
+            LEFT JOIN Образы AS o ON t.ТоварID = o.ТоварID
         `;
-        if (hashtag) {
-            query += ` 
-            LEFT JOIN ТоварыХештеги AS th ON t.ТоварID = th.ТовараID
-            LEFT JOIN Хештеги AS h ON th.ХештегID = h.ID
+
+        if (tags.length > 0) {
+            query += `
+                LEFT JOIN ТоварыХештеги AS th ON t.ТоварID = th.ТовараID
+                LEFT JOIN Хештеги AS h ON th.ХештегID = h.ID
             `;
         }
+
         query += ` WHERE 1=1`;
-        if (hashtag) {
-            query += ` 
-            AND h.Название = @hashtag`;
+
+        const addInClause = (fieldName, values, prefix, type = sql.NVarChar) => {
+            if (!values.length) return '';
+            const conditions = [];
+            values.forEach((value, i) => {
+                const paramName = `${prefix}${i}`;
+                request.input(paramName, type, value);
+                conditions.push(`${fieldName} = @${paramName}`);
+            });
+            return ` AND (${conditions.join(' OR ')})`;
+        };
+
+        query += addInClause('g.Название', genders, 'gender');
+        query += addInClause('k.Название', categories, 'category');
+        query += addInClause('c.Название', colors, 'color');
+        query += addInClause('b.Название', brands, 'brand');
+        query += addInClause('h.Название', tags, 'tag');
+
+        if (minPrice !== null && maxPrice !== null) {
+            request.input('minPrice', sql.Decimal(18, 2), minPrice);
+            request.input('maxPrice', sql.Decimal(18, 2), maxPrice);
+            query += ` AND t.Цена BETWEEN @minPrice AND @maxPrice`;
         }
+
         if (obraz && obraz !== 'all') {
-            query += ` AND o.ID = @obraz`;
+            request.input('obrazId', sql.Int, obraz);
+            query += ` AND o.ID = @obrazId`;
         }
-        // Добавление условий фильтрации
-        if (gendrCode && gendrCode !== 'all') {
-            query += ` AND g.ID = @gendrCode`;
-        }
-        if (categoryId && categoryId !== 'all') {
-            query += ` AND k.ID = @categoryId`;
-        }
-        if (subcategory && subcategory !== 'all') {
-            query += ` AND p.ID = @subcategory`;
-        }
+
         if (search) {
+            request.input('search', sql.NVarChar, `%${search}%`);
             query += ` AND (
                 t.Название LIKE @search
                 OR t.Артикул LIKE @search
@@ -108,34 +140,13 @@ app.get('/products', async (req, res) => {
 
         query += ` ORDER BY t.ДатаДобавления DESC`;
 
-        const request = pool.request();
-
-        // Передача параметров
-        if (gendrCode && gendrCode !== 'all') {
-            request.input('gendrCode', sql.Int, gendrCode);
-        }
-        if (subcategory && subcategory !== 'all') {
-            request.input('subcategory', sql.Int, subcategory);
-        }
-        if (categoryId && categoryId !== 'all') {
-            request.input('categoryId', sql.Int, categoryId);
-        }
-        if (hashtag) {
-            request.input('hashtag', sql.NVarChar, hashtag);
-        }
-        if (obraz) {
-            request.input('obraz', sql.Int, obraz);
-        }
-        if (search) {
-            request.input('search', sql.NVarChar, `%${search}%`);
-        }
-
         const result = await request.query(query);
         res.json(result.recordset);
     } catch (error) {
         res.status(500).send(error.message);
     }
 });
+
 
 
 app.use('/images', express.static(imageDirectory));
@@ -193,34 +204,6 @@ app.get('/addImages', async (req, res) => {
         res.status(500).send(error.message);
     }
 });  
-
-app.use('/categoriesimages', express.static(categoriesImageDirectory));
-app.get('/categories', async (req, res) => {
-    const gendrCode = req.query.gendrCode;
-    try {
-        let pool = await sql.connect(dbConfig);
-        const result = await pool.request().input('gendrCode', sql.Int, gendrCode)
-            .query(`SELECT ФотоКатегории.ID,ПутьФото,Категория.Название, Категория.ID AS КатегорияID  
-                    FROM ФотоКатегории
-                    JOIN Категория ON Категория.ID = ФотоКатегории.КатегорияID
-                    WHERE ГендрID = @gendrCode`);
-
-        console.log('categories images:', result.recordset);
-
-        const images = result.recordset.map(item => {
-            return {
-                ID: item.КатегорияID,
-                ПутьФото: `http://${serverIp}:${port}/categoriesimages/${item.ПутьФото}`,
-                Название: item.Название
-            };
-        });
-        res.json(images);
-    } catch (error) {
-        console.error('Error fetching product images:', error);
-        res.status(500).send(error.message);
-    }
-}); 
-
 
 app.get('/product-sizes', async (req, res) => {
     const productId = req.query.productId; // Получение параметра из запроса
@@ -294,9 +277,6 @@ const secretKey = 'MySuperSecretKey123!';  // Use a secure, unique key for produ
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 
-const CLIENT_ID = '988083805696-mdbm9be5cdm4ssb7ut33f1rhq1dvpkmd.apps.googleusercontent.com';
-
-const REFRESH_TOKEN = '1//04lE7oxaix9Q0CgYIARAAGAQSNwF-L9IrTy9k3lDUZb9haA4_7ccjvRDDz7juRX106QWoX51Nz_CatmdjIyqu2BdW-4e7qU-HEt4';
 
 // Создаем OAuth2 клиент
 const oauth2Client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
@@ -584,7 +564,7 @@ app.post('/cart', async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
         let query = `
-            SELECT tr.ID AS ТоварРазмерID, t.ТоварID AS ТоварID, t.Название, t.Цена, c.Название AS Цвет, c.КодЦвета, 
+            SELECT tr.ID AS ТоварРазмерID, t.ТоварID AS ТоварID, t.Название, t.МагазинID, t.Цена, c.Название AS Цвет, c.КодЦвета, 
             r.Размер, k.Количество, k.ДатаДобавления
             FROM ТоварРазмер AS tr
             JOIN Размер AS r ON tr.РазмерID = r.ID
@@ -777,7 +757,541 @@ app.get('/sizesByColor', async (req, res) => {
         res.status(500).send(error.message);
     }
 });
+app.use('/brand', express.static(brandImageDirectory));
 
+app.get('/brand', async (req, res) => {
+    try {
+        let pool = await sql.connect(dbConfig);
+        const result = await pool
+            .request()
+            .query(`SELECT 
+                ID,
+                Название,
+                ПутьФото,
+                Описание
+            FROM Бренды`);
+
+        // Process the results
+        const brands = result.recordset.map(item => {
+            return {
+                ID: item.ID,  // Fixed: was using КатегорияID which doesn't exist in this query
+                Название: item.Название,
+                ПутьФото: item.ПутьФото ? `http://${serverIp}:${port}/brand/${item.ПутьФото}` : null,
+                Описание: item.Описание
+            };
+        });
+
+        console.log('Brands fetched:', brands);
+        res.json(brands);  // Return the processed brands array
+
+    } catch (error) {
+        console.error('Error fetching brands:', error);
+        res.status(500).send(error.message);
+    }
+});
+
+app.use('/categoriesimages', express.static(categoriesImageDirectory));
+app.get('/categories', async (req, res) => {
+    try {
+        const parseArray = (param) => {
+            if (Array.isArray(param)) return param;
+            if (typeof param === 'string') return param.split(',');
+            return [];
+        };
+
+        const {
+            minPrice = 0,
+            maxPrice = 10000,
+            isAdd = false,
+        } = req.query;
+
+        const colors = parseArray(req.query.colors);
+        const brands = parseArray(req.query.brands);
+        const tags = parseArray(req.query.tags);
+        const gender = parseArray(req.query.gender);
+
+        let pool = await sql.connect(dbConfig);
+
+        let query = ``;
+        if (isAdd=='true') {
+            query += ` SELECT DISTINCT fk.ID AS ID, fk.ПутьФото AS ПутьФото, k.Название AS Название, k.ID AS КатегорияID
+            FROM ФотоКатегории AS fk
+            LEFT JOIN Категория AS k ON k.ID = fk.КатегорияID
+            LEFT JOIN Подкатегория AS p ON k.ID = p.КатегорияID
+            JOIN Товары AS t ON p.ID = t.ПодкатегорияID
+            LEFT JOIN Гендер AS g ON g.ID = fk.ГендрID
+            LEFT JOIN Бренды AS b ON b.ID = t.БрендID
+            LEFT JOIN Цвета AS c ON t.ЦветID = c.ID
+            LEFT JOIN ТоварыХештеги AS th ON th.ТовараID = t.ТоварID
+            LEFT JOIN Хештеги AS h ON h.ID = th.ХештегID
+            WHERE  1=1`;
+        }
+        else{
+            query += `SELECT DISTINCT k.ID AS ID, k.Название AS Название, k.ID AS КатегорияID
+            FROM Категория AS k
+            LEFT JOIN Подкатегория AS p ON k.ID = p.КатегорияID
+            JOIN Товары AS t ON p.ID = t.ПодкатегорияID 
+            LEFT JOIN Гендер AS g ON g.ID = t.ГендерID   
+            LEFT JOIN Бренды AS b ON b.ID = t.БрендID
+            LEFT JOIN Цвета AS c ON t.ЦветID = c.ID
+            LEFT JOIN ТоварыХештеги AS th ON th.ТовараID = t.ТоварID
+            LEFT JOIN Хештеги AS h ON h.ID = th.ХештегID
+            WHERE  1=1`;
+        }
+
+        if (gender.length > 0) {
+            query += ` AND g.Название IN (${gender.map(g => `'${g}'`).join(',')})`;
+        }
+
+        if (colors.length > 0) {
+            query += ` AND c.Название IN (${colors.map(c => `'${c}'`).join(',')})`;
+        }
+
+        if (brands.length > 0) {
+            query += ` AND b.Название IN (${brands.map(b => `'${b}'`).join(',')})`;
+        }
+
+        if (tags.length > 0) {
+            query += ` AND h.Название IN (${tags.map(t => `'${t}'`).join(',')})`;
+        }
+
+        query += ` AND t.Цена BETWEEN ${minPrice} AND ${maxPrice}`;
+
+        const result = await pool.request().query(query);
+        console.log('Categories images:', result.recordset);
+        const images = result.recordset.map(item => {
+            return {
+                ID: item.КатегорияID,
+                ПутьФото: `http://${serverIp}:${port}/categoriesimages/${item.ПутьФото}`,
+                Название: item.Название
+            };
+        });
+
+        console.log('categories images:', images); // ✅ Теперь переменная определена
+
+        res.json(images);
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        res.status(500).send(error.message);
+    }
+});
+
+ 
+app.get('/tags', async (req, res) => {
+    try {
+        const parseArray = (param) => {
+            if (Array.isArray(param)) return param;
+            if (typeof param === 'string') return param.split(',');
+            return [];
+        };
+
+        const parseNumber = (param) => {
+            const num = Number(param);
+            return isNaN(num) ? null : num;
+        };
+
+        const categories = parseArray(req.query.categories);
+        const brands = parseArray(req.query.brands);
+        const colors = parseArray(req.query.tags);
+        const genders = parseArray(req.query.gender);
+        const minPrice = parseNumber(req.query.minPrice);
+        const maxPrice = parseNumber(req.query.maxPrice);
+
+        let query = `
+            SELECT DISTINCT th.ХештегID, h.Название
+            FROM ТоварыХештеги as th
+            JOIN Товары AS t ON th.ТовараID = t.ТоварID
+            LEFT JOIN Гендер AS g ON g.ID = t.ГендерID
+            LEFT JOIN Подкатегория AS p ON p.ID = t.ПодкатегорияID
+            LEFT JOIN Категория AS k ON k.ID = p.КатегорияID
+            LEFT JOIN Бренды AS b ON b.ID = t.БрендID
+            LEFT JOIN Цвета AS c ON t.ЦветID = c.ID
+            LEFT JOIN Хештеги AS h ON h.ID = th.ХештегID
+            WHERE 1=1
+        `;
+
+        if (genders.length > 0) {
+            query += ` AND g.Название IN (${genders.map(g => `'${g}'`).join(',')})`;
+        }
+
+        if (categories.length > 0) {
+            query += ` AND k.Название IN (${categories.map(c => `'${c}'`).join(',')})`;
+        }
+
+        if (brands.length > 0) {
+            query += ` AND b.Название IN (${brands.map(b => `'${b}'`).join(',')})`;
+        }
+
+        if (colors.length > 0) {
+            query += ` AND c.Название IN (${colors.map(c => `'${c}'`).join(',')})`;
+        }
+
+        if (minPrice !== null && maxPrice !== null) {
+            query += ` AND t.Цена BETWEEN ${minPrice} AND ${maxPrice}`;
+        }
+
+        console.info('Executing query:', query);
+
+        let pool = await sql.connect(dbConfig);
+        const result = await pool.request().query(query);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error fetching tags:', error);
+        res.status(500).send(error.message);
+    }
+});
+
+app.get('/gender', async (req, res) => {
+    try {
+        const parseArray = (param) => {
+            if (Array.isArray(param)) return param;
+            if (typeof param === 'string') return param.split(',');
+            return [];
+        };
+
+        const parseNumber = (param) => {
+            const num = Number(param);
+            return isNaN(num) ? null : num;
+        };
+
+        const categories = parseArray(req.query.categories);
+        const brands = parseArray(req.query.brands);
+        const colors = parseArray(req.query.colors);
+        const tags = parseArray(req.query.tags);
+        const minPrice = parseNumber(req.query.minPrice);
+        const maxPrice = parseNumber(req.query.maxPrice);
+
+        let query = `
+            SELECT DISTINCT g.ID AS ID, g.Название AS Название
+            FROM Гендер AS g
+            JOIN Товары AS t ON g.ID = t.ГендерID
+            LEFT JOIN Подкатегория AS p ON p.ID = t.ПодкатегорияID
+            LEFT JOIN Категория AS k ON k.ID = p.КатегорияID
+            LEFT JOIN Бренды AS b ON b.ID = t.БрендID
+            LEFT JOIN Цвета AS c ON t.ЦветID = c.ID
+            LEFT JOIN ТоварыХештеги AS th ON th.ТовараID = t.ТоварID
+            LEFT JOIN Хештеги AS h ON h.ID = th.ХештегID
+            WHERE  1=1
+        `;
+
+        if (tags.length > 0) {
+            query += ` AND h.Название IN (${tags.map(t => `'${t}'`).join(',')})`;
+        }
+
+        if (categories.length > 0) {
+            query += ` AND k.Название IN (${categories.map(c => `'${c}'`).join(',')})`;
+        }
+
+        if (brands.length > 0) {
+            query += ` AND b.Название IN (${brands.map(b => `'${b}'`).join(',')})`;
+        }
+
+        if (colors.length > 0) {
+            query += ` AND c.Название IN (${colors.map(c => `'${c}'`).join(',')})`;
+        }
+
+        if (minPrice !== null && maxPrice !== null) {
+            query += ` AND t.Цена BETWEEN ${minPrice} AND ${maxPrice}`;
+        }
+
+        console.info('Executing query:', query);
+
+        let pool = await sql.connect(dbConfig);
+        const result = await pool.request().query(query);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error fetching tags:', error);
+        res.status(500).send(error.message);
+    }
+});
+
+app.get('/colors', async (req, res) => {    
+    try {
+        const parseArray = (param) => {
+            if (Array.isArray(param)) return param;
+            if (typeof param === 'string') return param.split(','); // 💥 ключевой момент
+            return [];
+        };
+
+        const { 
+            minPrice = 0, 
+            maxPrice = 10000,
+        } = req.query;
+
+        const categories = parseArray(req.query.categories);
+        const brands = parseArray(req.query.brands);
+        const tags = parseArray(req.query.tags);
+        const gender = parseArray(req.query.gender);
+
+        let pool = await sql.connect(dbConfig);
+        
+        let query = `
+            SELECT DISTINCT c.ID, c.КодЦвета, c.Название
+            FROM Цвета AS c
+            JOIN Товары AS t ON t.ЦветID = c.ID
+			LEFT JOIN Гендер AS g ON g.ID = t.ГендерID
+            LEFT JOIN Подкатегория AS p ON p.ID = t.ПодкатегорияID
+            LEFT JOIN Категория AS k ON k.ID = p.КатегорияID
+            LEFT JOIN Бренды AS b ON b.ID = t.БрендID
+            LEFT JOIN ТоварыХештеги AS th ON th.ТовараID = t.ТоварID
+            LEFT JOIN Хештеги AS h ON h.ID = th.ХештегID
+            WHERE t.Цена BETWEEN ${minPrice} AND ${maxPrice}
+        `;
+
+        if (gender.length > 0) {
+            query += ` AND g.Название IN (${gender.map(g => `'${g}'`).join(',')})`;
+        }
+
+        if (categories.length > 0) {
+            query += ` AND k.Название IN (${categories.map(c => `'${c}'`).join(',')})`;
+        }
+
+        if (brands.length > 0) {
+            query += ` AND b.Название IN (${brands.map(b => `'${b}'`).join(',')})`;
+        }
+
+        if (tags.length > 0) {
+            query += ` AND h.Название IN (${tags.map(t => `'${t}'`).join(',')})`;
+        }
+        query += ` AND t.Цена BETWEEN ${minPrice} AND ${maxPrice}`;
+        console.info(query)
+
+
+        const result = await pool.request().query(query);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error fetching colors:', error);
+        res.status(500).send(error.message);
+    }
+});
+
+app.get('/price-range', async (req, res) => {
+    try {
+        const parseArray = (param) => {
+            if (Array.isArray(param)) return param;
+            if (typeof param === 'string') return param.split(',');
+            return [];
+        };
+
+        const colors = parseArray(req.query.colors);
+        const categories = parseArray(req.query.categories);
+        const brands = parseArray(req.query.brands);
+        const genders = parseArray(req.query.genders);
+        const tags = parseArray(req.query.tags);
+
+        let pool = await sql.connect(dbConfig);
+
+        let query = `
+            SELECT MIN(t.Цена) AS minPrice, MAX(t.Цена) AS maxPrice
+            FROM Товары AS t
+            JOIN Цвета AS c ON t.ЦветID = c.ID
+            JOIN Подкатегория AS p ON t.ПодкатегорияID = p.ID
+            JOIN Категория AS k ON p.КатегорияID = k.ID
+            JOIN Бренды AS b ON t.БрендID = b.ID
+            JOIN Гендер AS g ON t.ГендерID = g.ID            
+            LEFT JOIN ТоварыХештеги AS th ON th.ТовараID = t.ТоварID
+            LEFT JOIN Хештеги AS h ON h.ID = th.ХештегID
+            WHERE 1=1
+        `;
+
+        if (colors.length > 0) {
+            query += ` AND c.Название IN (${colors.map(c => `'${c}'`).join(',')})`;
+        }
+
+        if (categories.length > 0) {
+            query += ` AND k.Название IN (${categories.map(c => `'${c}'`).join(',')})`;
+        }
+
+        if (brands.length > 0) {
+            query += ` AND b.Название IN (${brands.map(b => `'${b}'`).join(',')})`;
+        }
+
+        if (genders.length > 0) {
+            query += ` AND g.Название IN (${genders.map(g => `'${g}'`).join(',')})`;
+        }
+        if (tags.length > 0) {
+            query += ` AND h.Название IN (${tags.map(t => `'${t}'`).join(',')})`;
+        }
+
+        const result = await pool.request().query(query);
+        res.json(result.recordset[0]);
+    } catch (error) {
+        console.error('Error fetching price range:', error);
+        res.status(500).send(error.message);
+    }
+});
+app.get('/shop', async (req, res) => { 
+    try {
+        let pool = await sql.connect(dbConfig);
+        const result = await pool
+            .request()
+            .query(`
+                SELECT m.ID, m.Город, m.Адрес, gr.ДеньНедели, gr.ВремяОткрытия, gr.ВремяЗакрытия
+                FROM Магазины m
+                LEFT JOIN ГрафикРаботы gr ON m.ID = gr.МагазинID
+                ORDER BY m.ID, gr.ДеньНедели;
+                `);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error fetching shop:', error);
+        res.status(500).send(error.message);
+    }
+});
+app.get('/check-promo', async (req, res) => {
+    const promoCode = req.query.promoCode;
+    const userId = parseInt(req.query.userId, 10);
+
+    try {
+        let pool = await sql.connect(dbConfig);
+        const request = pool.request();
+
+        if (!promoCode) {
+            const result = await request.query(`SELECT p.* FROM Промокоды p`);
+            return res.json(result.recordset);
+        }
+
+        request.input('promoCode', sql.NVarChar, promoCode);
+        request.input('userId', sql.Int, userId);
+
+        // 1. Проверка: существует ли промокод вообще
+        let result = await request.query(`
+            SELECT TOP 1 p.*
+            FROM Промокоды p
+            WHERE p.Код = @promoCode
+        `);
+        if (result.recordset.length === 0) {
+            return res.json({ valid: false, reason: 'Промокод не существует' });
+        }
+
+        const promo = result.recordset[0];
+
+        // 2. Проверка: активен ли
+        if (!promo.Активен) {
+            return res.json({ valid: false, reason: 'Промокод не активен' });
+        }
+
+        // 3. Проверка: срок действия
+        if (promo.ДатаОкончания && new Date(promo.ДатаОкончания) < new Date()) {
+            return res.json({ valid: false, reason: 'Срок действия промокода истёк' });
+        }
+
+        // 4. Проверка: использовал ли пользователь этот промокод
+        const usedResult = await pool.request()
+            .input('promoId', sql.Int, promo.ID)
+            .input('userId', sql.Int, userId)
+            .query(`
+                SELECT 1 FROM ПромокодыПользователя
+                WHERE ПромокодId = @promoId AND ПользовательID = @userId
+            `);
+
+        if (usedResult.recordset.length > 0) {
+            return res.json({ valid: false, reason: 'Промокод уже был использован' });
+        }
+
+        // Если всё успешно
+        return res.json({
+            valid: true,
+            data: promo,
+            reason: 'Промокод успешно применён'
+        });
+
+    } catch (error) {
+        console.error('Ошибка при проверке промокода:', error);
+        res.status(500).send(error.message);
+    }
+});
+app.post('/add-order', async (req, res) => {
+    const {
+        order_number,
+        user_id,
+        sum,
+        promo_id,
+        orderPreparationDate,
+        items // <-- список товаров
+    } = req.body;
+
+    try {
+        let pool = await sql.connect(dbConfig);
+
+        // Использование промокода, если указан
+        if (promo_id) {
+            await pool.request()
+                .input('userId', sql.Int, user_id)
+                .input('promoId', sql.Int, promo_id)
+                .query(`
+                    INSERT INTO ПромокодыПользователя(ПользовательID, ПромокодId, ДатаИспользования)
+                    VALUES(@userId, @promoId, GETDATE())
+                `);
+        }
+
+        // Вставка заказа
+        const orderResult = await pool.request()
+            .input('order_number', sql.NVarChar, order_number)
+            .input('userId', sql.Int, user_id)
+            .input('sum', sql.Decimal(10, 2), sum)
+            .input('orderPreparationDate', sql.DateTime2, orderPreparationDate)
+            .query(`
+                INSERT INTO Заказы(НомерЗаказа, ПользовательID, ДатаЗаказа, ОбщаяСумма, Статус, ДатаПодготовкиЗаказа)
+                VALUES(@order_number, @userId, GETDATE(), @sum, 'комплектация', @orderPreparationDate)
+            `);
+
+        if (orderResult.rowsAffected[0] === 0) {
+            return res.status(400).json({ success: false, message: 'Не удалось оформить заказ' });
+        }
+
+        // Вставка товаров заказа
+        for (const item of items) {
+            const productId = item.productId; // или item.productId
+            const count = item.count;
+
+            await pool.request()
+                .input('order_number', sql.NVarChar, order_number)
+                .input('productId', sql.Int, productId)
+                .input('count', sql.Int, count)
+                .query(`
+                    INSERT INTO ЗаказыТовары(НомерЗаказа, ТоварID, Количество)
+                    VALUES(@order_number, @productId, @count)
+                `);
+        }
+
+        res.json({ success: true, message: 'Заказ и товары успешно оформлены' });
+
+    } catch (error) {
+        console.error('Ошибка оформления заказа:', error);
+        res.status(500).json({ success: false, message: 'Произошла ошибка при оформлении заказа', error: error.message });
+    }
+});
+
+app.get('/orders', async (req, res) => { 
+    try {
+        const order_number = req.query.order_number;
+        let pool = await sql.connect(dbConfig);
+        const result = await pool
+            .request()
+            .input('order_number', sql.NVarChar, order_number)
+            .query(`SELECT 
+  z.НомерЗаказа,
+  z.ПользовательID,
+  z.ДатаЗаказа,
+  z.ДатаПодготовкиЗаказа,
+  z.ОбщаяСумма,
+  z.Статус,
+  zt.ТоварID AS ТоварРазмерID,
+  zt.Количество
+  ,s.Город
+  ,s.Адрес
+FROM Заказы AS z
+JOIN ЗаказыТовары AS zt ON zt.НомерЗаказа = z.НомерЗаказа
+LEFT JOIN ТоварРазмер AS tr ON tr.ID = zt.ТоварID
+LEFT JOIN Товары AS t ON t.ТоварID = tr.ТоварID
+LEFT JOIN Магазины AS s ON s.ID = t.МагазинID
+WHERE z.НомерЗаказа = @order_number `);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error fetching order:', error);
+        res.status(500).send(error.message);
+    }
+});
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);

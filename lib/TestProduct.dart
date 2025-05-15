@@ -23,7 +23,7 @@ class ProductPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: ProductCart(
-        gendrCode: 1,
+        gender: [''],
         maxItems: 10,
         layoutType: LayoutType.horizontal,
       ),

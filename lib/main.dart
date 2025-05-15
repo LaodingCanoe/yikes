@@ -4,7 +4,7 @@ import 'BottomNavigationBar.dart'; // Импортируем ваш файл
 import 'desktop_product_list.dart'; // Подключаем DesktopProductList
 import 'mobile_product_list.dart'; 
 import 'MobileNavigationBar.dart';
-import 'MobileHomePage.dart';
+import 'WebNavigationBar.dart';
 import 'TestProduct.dart';
 void main() {
   runApp(MyApp());
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
 
   Widget _getHomePage() {
     if (kIsWeb) {
-      return MobileNavigationBar(); // Для Web
+      return WebApp(); // Для Web
     }
 
     switch (defaultTargetPlatform) {
@@ -40,7 +40,7 @@ class MyApp extends StatelessWidget {
       case TargetPlatform.macOS:
       case TargetPlatform.windows:
       case TargetPlatform.linux:
-        return MobileNavigationBar(); // Для ПК
+        return WebApp(); // Для ПК
       default:
         return MobileNavigationBar(); // По умолчанию мобильная версия
     }

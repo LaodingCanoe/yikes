@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'image_carousel.dart';
 import 'db_class.dart';
+import 'checkout_screen.dart';
 
 final dbHelper = DatabaseHelper();
 
@@ -110,44 +111,36 @@ void didUpdateWidget(covariant CartScreen oldWidget) {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const Text(
-          'Корзина',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'BlackOpsOne',
-            fontSize: 30.0,             
-          ),
-        ),
-        
-      ),
+    return Scaffold(     
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Пункт выдачи',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 8),
+              children: [                
                 Row(
                   children: [
                     Checkbox(
+                      checkColor: Colors.white,
+                      activeColor: const Color(0xFF333333),
                       value: selectAll,
                       onChanged: (value) {
-                        setState(() {
+                        setState(() {                          
                           selectAll = value ?? false;
                           _cartItems.then((cartItems) {
                           _updateSelectAll(value ?? false, cartItems);});
                         });
                       },
                     ),
-                    Text('Выбрать всё'),
+                    Text('Выбрать всё',
+                        style: TextStyle(
+                        fontFamily: 'Standart',
+                        fontSize: 26,
+                        fontWeight: FontWeight.w500,
+                        wordSpacing: 5,
+                      ),
+                      ),
                     Spacer(),
                     ElevatedButton(                      
                       onPressed: selectedItems.isNotEmpty
@@ -166,7 +159,13 @@ void didUpdateWidget(covariant CartScreen oldWidget) {
                         borderRadius:  BorderRadius.circular(10),
                       ),
                     ),
-                  child: Text('Удалить выбранное'),
+                  child: Text('Удалить выбранное',
+                        style: TextStyle(
+                        fontFamily: 'Standart',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
+                        wordSpacing: 5,
+                      ),),
                     ),
                   ],
                 ),
@@ -253,13 +252,19 @@ void didUpdateWidget(covariant CartScreen oldWidget) {
                 ),
                 ElevatedButton(
                   onPressed: selectedItems.isNotEmpty
-                      ? () {
-                          final _user = dbHelper.getLoginData();
-                          setState(() {
-                              print("userID = ${_user}");
-                          });
+                    ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CheckoutScreen(
+                              selectedItems: selectedItems,
+                              userID: userID,
+                            ),
+                          ),
+                        );
                       }
-                      : null, // Кнопка будет неактивна, если нет выбранных товаров
+                    : null,
+                     
                   style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF333333),
                       foregroundColor: Color(0xFFC7C7C7),
@@ -267,7 +272,14 @@ void didUpdateWidget(covariant CartScreen oldWidget) {
                           borderRadius: BorderRadius.circular(10),
                       ),
                   ),
-                  child: const Text('Перейти к оформлению'),
+                  child: const Text('Перейти к оформлению',
+                  style: TextStyle(
+                    color: Colors.white,
+                        fontFamily: 'Standart',
+                        fontSize: 26,
+                        fontWeight: FontWeight.w500,
+                        wordSpacing: 1,
+                      ),),
               ),
               ],
             ),
@@ -434,7 +446,11 @@ Widget build(BuildContext context) {
                         SizedBox(height: 8),
                         Text(
                           '${item['Цена']} ₽',
-                          style: TextStyle(fontSize: 16, color: Colors.green),
+                        style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        wordSpacing: 5,
+                      ),
                         ),
                         SizedBox(height: 8),
                         // Цвета и размеры
@@ -487,7 +503,14 @@ Widget build(BuildContext context) {
                       onUpdateCart();
                     },
                     icon: Icon(Icons.delete, color: Colors.red),
-                    label: Text('Удалить'),
+                    label: Text('Удалить',
+                        style: TextStyle(
+                        fontFamily: 'Standart',
+                        color: Colors.black,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w500,
+                        wordSpacing: 5,
+                      ),),
                   ),
                   Row(
                     children: [

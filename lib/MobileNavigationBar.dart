@@ -7,6 +7,7 @@ import 'CartCard.dart';
 import 'ProductPage.dart';
 import 'EmailConfirmationPage.dart';
 import 'searchCart.dart';
+import 'order_confirm_page.dart';
 
 final dbHelper = DatabaseHelper();
 
@@ -56,58 +57,85 @@ class _NavigationExampleState extends State<NavigationExample> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: currentPageIndex == 0 
+          ? AppBar(
+              centerTitle: true,
+              title: const Text(
+                'Keynes',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'BlackOpsOne',
+                  fontSize: 30.0,
+                ),
+              ),
+            )
+          : currentPageIndex == 2
+              ? AppBar(
+                  centerTitle: true,
+                  title: const Text(
+                    'Корзина',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'BlackOpsOne',
+                      fontSize: 30.0,             
+                    ),
+                  ),
+                )
+              : null,
       bottomNavigationBar: Padding(
-  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Меньше отступов
-  child: Container(
-    height: 60, // Фиксированная высота панели
-    decoration: BoxDecoration(
-      color: Color(0xFF5D5755),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: NavigationBarTheme(
-      data: NavigationBarThemeData(
-        height: 50, // Уменьшаем высоту самой навигационной панели
-        labelTextStyle: MaterialStateProperty.all(TextStyle(fontSize: 0)), // Убираем подписи
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Container(
+          height: 60,
+          decoration: BoxDecoration(
+            color: Color(0xFF5D5755),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              height: 50,
+              labelTextStyle: MaterialStateProperty.all(TextStyle(fontSize: 0)),
+            ),
+            child: NavigationBar(
+              backgroundColor: Colors.transparent,
+              indicatorColor: Colors.white,
+              selectedIndex: currentPageIndex,
+              onDestinationSelected: (int index) {
+                setState(() {
+                  currentPageIndex = index;
+                  if (index == 2) {
+                    cartScreenKey.currentState?.refreshCart();
+                  }
+                });
+              },
+              destinations: [
+                NavigationDestination(
+                  icon: Icon(Icons.home, color: currentPageIndex == 0 ? Color(0xFF333333) : Colors.white),
+                  label: '',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.search, color: currentPageIndex == 1 ? Color(0xFF333333) : Colors.white),
+                  label: '',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.shopping_cart, color: currentPageIndex == 2 ? Color(0xFF333333) : Colors.white),
+                  label: '',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.login, color: currentPageIndex == 3 ? Color(0xFF333333) : Colors.white),
+                  label: '',
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      child: NavigationBar(
-        backgroundColor: Colors.transparent,
-        indicatorColor: Colors.white,
-        selectedIndex: currentPageIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            currentPageIndex = index;
-            if (index == 2) {
-              cartScreenKey.currentState?.refreshCart();
-            }
-          });
-        },
-        destinations: [
-          NavigationDestination(
-            icon: Icon(Icons.home, color: currentPageIndex == 0 ? Color(0xFF333333) : Colors.white),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.search, color: currentPageIndex == 1 ? Color(0xFF333333) : Colors.white),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart, color: currentPageIndex == 2 ? Color(0xFF333333) : Colors.white),
-            label: '',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.login, color: currentPageIndex == 3 ? Color(0xFF333333) : Colors.white),
-            label: '',
-          ),
-        ],
-      ),
-    ),
-  ),
-),
-
       body: IndexedStack(
         index: currentPageIndex,
         children: [
-          MobileHomePage(),
+         MobileHomePage(),
+        //   OrderConfirmationPage(
+        //   orderNumber: 'ORD-1747222507404',
+        // ),
           SearchPage(),
           CartScreen(key: cartScreenKey),
           userData != null

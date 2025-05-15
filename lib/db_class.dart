@@ -31,73 +31,55 @@ class DatabaseHelper {
       print('Error fetching images: $e');
       return [];
     }
-  }
-
-  Future<List<Map<String, dynamic>>> fetchCategories(String endpoint) async {
-    try {
-      final response = await http.get(
-        Uri.parse('http://${Configuration.ip_adress}:${Configuration.port}/$endpoint'),
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data is List) {
-          return data.map((item) => {
-            'ID': item['ID'],
-            'ПутьФото': item['ПутьФото'],
-            'Название': item['Название']
-          }).toList();
-        } else {
-          throw Exception('Unexpected data format');
-        }
-      } else {
-        throw Exception('Failed to fetch categories');
-      }
-    } catch (e) {
-      print('Error fetching categories: $e');
-      return [];
-    }
-  }
-static Future<List<dynamic>> fetchProducts({
-  int? gendrCode,
-  int? categoryId,
-  int? obraz,
+  }  
+static Future<List<Map<String, dynamic>>> fetchProducts({
+  List<String>? categories,
+  List<String>? brands,
+  List<String>? colors,
+  List<String>? tags,
+  double? minPrice,
+  double? maxPrice,
   String? search,
-  String? hashtag,
+  int? obraz,
+  List<String>? gender,
   int? subcategory,
   int maxItems = 1000,
 }) async {
-  try {
-    // Формируем URL с учетом переданных параметров
-    final queryParameters = {
-      if (gendrCode != null) 'gendrCode': gendrCode.toString(),
-      if (categoryId != null) 'categoryId': categoryId.toString(),
-      if (subcategory != null) 'subcategory': subcategory,
-      if (hashtag != null) 'hashtag': hashtag,
+  final uri = Uri(
+    scheme: 'http',
+    host: Configuration.ip_adress,
+    port: Configuration.port,
+    path: '/products',
+    queryParameters: {
+      if (categories != null && categories.isNotEmpty)
+        'categories': categories.join(','),
+      if (brands != null && brands.isNotEmpty)
+        'brands': brands.join(','),
+      if (colors != null && colors.isNotEmpty)
+        'colors': colors.join(','),
+      if (tags != null && tags.isNotEmpty)
+        'tags': tags.join(','),
+      if (gender != null && gender.isNotEmpty)
+        'gender': gender.join(','),
+      if (minPrice != null) 'minPrice': minPrice.toString(),
+      if (maxPrice != null) 'maxPrice': maxPrice.toString(),
+      if (search != null && search.isNotEmpty) 'search': search,
       if (obraz != null) 'obraz': obraz.toString(),
-      if (search != null) 'search': search.toString(),
-    };
+      if (subcategory != null) 'subcategory': subcategory.toString(),
+    },
+  );
 
-    final uri = Uri.http(
-      '${Configuration.ip_adress}:${Configuration.port}',
-      '/products',
-      queryParameters,
-    );
-
-    final response = await http.get(uri);
-
+  try {
+    final response = await http.get(uri).timeout(const Duration(seconds: 40));
     if (response.statusCode == 200) {
-      final List<dynamic> fetchedProducts = json.decode(response.body);
-      return fetchedProducts.take(maxItems).toList();
+      final data = jsonDecode(response.body) as List;
+      return List<Map<String, dynamic>>.from(data.take(maxItems));
     } else {
-      throw Exception('Failed to load products: ${response.statusCode}');
+      print('Ошибка сервера: ${response.statusCode}');
+      return [];
     }
   } catch (e) {
-    print('Error loading products: $e');
+    print('Ошибка загрузки продуктов: $e');
     return [];
   }
 }
@@ -697,6 +679,350 @@ Future<List<Map<String, dynamic>>> fetchProductSizesByColorCode(
     throw Exception('Ошибка при получении размеров: $error');
   }
 }
+
+Future<List<Map<String, dynamic>>> fetchCategories({
+  double? minPrice,
+  double? maxPrice,
+  bool isAdd = false,
+  List<String>? colorNames,
+  List<String>? brand,
+  List<String>? tags,
+  List<String>? gender,
+}) async {
+  final url = Uri(
+    scheme: 'http',
+    host: Configuration.ip_adress,
+    port: Configuration.port,
+    path: '/categories',
+    queryParameters: {
+      if (minPrice != null) 'minPrice': minPrice.toString(),
+      if (maxPrice != null) 'maxPrice': maxPrice.toString(),
+      if (isAdd) 'isAdd': isAdd.toString(),
+      if (colorNames?.isNotEmpty ?? false) 'colors': colorNames!.join(','),
+      if (brand?.isNotEmpty ?? false) 'brands': brand!.join(','),
+      if (tags?.isNotEmpty ?? false) 'tags': tags!.join(','),
+      if (gender != null && gender.isNotEmpty) 'gender': gender,
+    },
+  );
+
+  final response = await http.get(url);
+
+  if (response.statusCode == 200) {
+    final List<dynamic> data = json.decode(response.body);
+    print('Categor:');
+    for (var item in data.cast<Map<String, dynamic>>()) {
+  print(item['ПутьФото']);
+}
+    return data.cast<Map<String, dynamic>>();
+  } else {
+    throw Exception('Failed to fetch categories');
+  }
+}
+
+Future<List<Map<String, dynamic>>> fetchBrand() async {
+  final String baseUrl = 'http://${Configuration.ip_adress}:${Configuration.port}';
+  final String endpoint = '/brand';
+  final String url = '$baseUrl$endpoint';
+
+  try {
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final jsonData = json.decode(response.body);
+
+      if (jsonData == null || jsonData.isEmpty) {
+        print('Нет доступных брендов.');
+        return [];
+      }
+
+      return List<Map<String, dynamic>>.from(jsonData);
+    } else {
+      print('Ошибка ${response.statusCode}: ${response.body}');
+      throw Exception('Ошибка загрузки брендов: ${response.statusCode}');
+    }
+  } catch (error, stackTrace) {
+    print('Ошибка при получении брендов: $error\n$stackTrace');
+    throw Exception('Ошибка при получении брендов: $error');
+  }
+}
+
+Future<List<Map<String, dynamic>>> fetchTags({
+  double? minPrice,
+  double? maxPrice,
+  List<String>? category,
+  List<String>? brand,
+  List<String>? colors,
+  List<String>? gender,
+}) async {
+  final url = Uri(
+    scheme: 'http',
+    host: Configuration.ip_adress,
+    port: Configuration.port,
+    path: '/tags',
+    queryParameters: {
+      if (minPrice != null) 'minPrice': minPrice.toString(),
+      if (maxPrice != null) 'maxPrice': maxPrice.toString(),
+      if (category?.isNotEmpty ?? false) 'categories': category!.join(','),
+      if (brand?.isNotEmpty ?? false) 'brands': brand!.join(','),
+      if (colors?.isNotEmpty ?? false) 'tags': colors!.join(','), // 💡 tags — это цвета
+      if (gender?.isNotEmpty ?? false) 'gender': gender,
+    },
+  );
+
+  try {
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
+    final data = jsonDecode(response.body) as List;
+    return List<Map<String, dynamic>>.from(data);
+  } catch (e) {
+    print('Error fetching tags: $e');
+    return [];
+  }
+}
+
+
+Future<List<Map<String, dynamic>>> fetchGender({
+  double? minPrice,
+  double? maxPrice,
+  List<String>? category,
+  List<String>? brand,
+  List<String>? colors,
+  List<String>? tags,
+}) async {
+  final url = Uri(
+    scheme: 'http',
+    host: Configuration.ip_adress,
+    port: Configuration.port,
+    path: '/gender',
+    queryParameters: {
+      if (minPrice != null) 'minPrice': minPrice.toString(),
+      if (maxPrice != null) 'maxPrice': maxPrice.toString(),
+      if (category?.isNotEmpty ?? false) 'categories': category!.join(','),
+      if (brand?.isNotEmpty ?? false) 'brands': brand!.join(','),
+      if (colors?.isNotEmpty ?? false) 'colors': colors!.join(','),
+      if (tags?.isNotEmpty ?? false) 'tags': tags!.join(','),
+    },
+  );
+
+  try {
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
+    final data = jsonDecode(response.body) as List;
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as List;
+      return List<Map<String, dynamic>>.from(data);
+    } else {
+      print('Server error: ${response.statusCode}');
+      return [];
+    }
+  } catch (e) {
+    print('Error fetching gender: $e');
+    return [];
+  }
+}
+
+
+Future<List<Map<String, dynamic>>> fetchColors({
+  double? minPrice,
+  double? maxPrice,
+  List<String>? category,
+  List<String>? brand,
+  List<String>? tags,
+  List<String>? gender,
+}) async {
+  
+  print(category);
+  final url = Uri(
+    scheme: 'http',
+    host: Configuration.ip_adress,
+    port: Configuration.port,
+    path: '/colors',
+    queryParameters: {
+      if (minPrice != null) 'minPrice': minPrice.toString(),
+      if (maxPrice != null) 'maxPrice': maxPrice.toString(),
+      if (category?.isNotEmpty ?? false) 'categories': category!.join(','),
+      if (brand?.isNotEmpty ?? false) 'brands': brand!.join(','),
+      if (tags?.isNotEmpty ?? false) 'tags': tags!.join(','),
+      if (gender != null) 'gender': gender,
+    },
+  );
+
+  try {
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
+    final data = jsonDecode(response.body) as List;
+    return List<Map<String, dynamic>>.from(data);
+  } catch (e) {
+    print('Error fetching colors: $e');
+    return [];
+  }
+}
+Future<Map<String, dynamic>> fetchPriceRange({
+  List<String>? colors,
+  List<String>? categories,
+  List<String>? brands,
+  List<String>? genders,
+  List<String>? tags,
+}) async {
+  final queryParams = <String, String>{};
+
+  if (colors != null && colors.isNotEmpty) {
+    queryParams['colors'] = colors.join(',');
+  }
+  if (categories != null && categories.isNotEmpty) {
+    queryParams['categories'] = categories.join(',');
+  }
+  if (brands != null && brands.isNotEmpty) {
+    queryParams['brands'] = brands.join(',');
+  }
+  if (genders != null && genders.isNotEmpty) {
+    queryParams['genders'] = genders.join(',');
+  }
+  if (tags != null && tags.isNotEmpty) {
+    queryParams['tags'] = tags.join(',');
+  }
+
+  final url = Uri(
+    scheme: 'http',
+    host: Configuration.ip_adress,
+    port: Configuration.port,
+    path: '/price-range',
+    queryParameters: queryParams,
+  );
+
+  try {
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
+    final data = jsonDecode(response.body);
+    return Map<String, dynamic>.from(data);
+  } catch (e) {
+    print('Error fetching price range: $e');
+    return {'minPrice': 0, 'maxPrice': 0};
+  }
+}
+Future<List<Map<String, dynamic>>> fetchShop(int productId) async {
+  final String baseUrl = 'http://${Configuration.ip_adress}:${Configuration.port}'; // Замените на адрес вашего сервера
+  final String endpoint = '/shop';
+
+  try {
+    final Uri url = Uri.parse('$baseUrl$endpoint');
+
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonData = json.decode(response.body);
+      return jsonData.cast<Map<String, dynamic>>();
+     
+    } else {
+      throw Exception('Failed to fetch shop: ${response.statusCode}');
+    }
+  } catch (error) {
+    // Обрабатываем ошибки
+    print('Error fetching shop: $error');
+    throw Exception('Error fetching shop: $error');
+  }
+}
+
+Future<dynamic> fetchPromoCode({
+  String? promoCode,
+  int? userId,
+}) async {
+  try {
+    final uri = Uri.http(
+      '${Configuration.ip_adress}:${Configuration.port}',
+      '/check-promo',
+      {
+        if (promoCode != null) 'promoCode': promoCode,
+        if (userId != null) 'userId': userId.toString(),
+      },
+    );
+
+    final response = await http.get(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data;
+    } else {
+      throw Exception('Не удалось загрузить промокод: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Ошибка при загрузке промокода: $e');
+    return null;
+  }
+}
+
+Future<bool> createOrder({
+  required String orderNumber,
+  required int userId,
+  required double sum,
+  required DateTime orderPreparationDate,
+  required List<Map<String, dynamic>> items,
+  int? promoId,
+}) async {
+  final url = Uri.parse(
+    'http://${Configuration.ip_adress}:${Configuration.port}/add-order',
+  );
+
+  // Создаём JSON-объект тела запроса
+  final formattedDate = orderPreparationDate.toIso8601String();
+  final Map<String, dynamic> requestBody = {
+    'order_number': orderNumber,
+    'user_id': userId,
+    'sum': sum,
+    'promo_id': promoId,
+    'orderPreparationDate': formattedDate,
+    'items': items, // <-- список товаров с количеством
+  };
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(requestBody),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        print('Заказ успешно оформлен');
+        return true;
+      } else {
+        print('Ошибка: ${data['message']}');
+        return false;
+      }
+    } else {
+      print('Ошибка сервера: ${response.statusCode}');
+      return false;
+    }
+  } catch (e) {
+    print('Ошибка при отправке запроса: $e');
+    return false;
+  }
+}
+Future<List<Map<String, dynamic>>> fetchOrders(String orderNumber,) async {
+  final String baseUrl = 'http://${Configuration.ip_adress}:${Configuration.port}'; // Замените на адрес вашего сервера
+  final String endpoint = '/orders';
+
+  try {
+    final Uri url = Uri.parse('$baseUrl$endpoint?order_number=$orderNumber');
+
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> jsonData = json.decode(response.body);
+      return jsonData.cast<Map<String, dynamic>>();
+     
+    } else {
+      throw Exception('Failed to fetch order: ${response.statusCode}');
+    }
+  } catch (error) {
+    // Обрабатываем ошибки
+    print('Error fetching order: $error');
+    throw Exception('Error fetching order: $error');
+  }
+}
+
 
 }
 
